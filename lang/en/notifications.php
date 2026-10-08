@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'order_confirmed' => ['title' => 'Booking confirmed', 'body' => 'Order :number at :venue is confirmed. Show your booking code from the app when you arrive.'],
+    'new_order' => ['title' => 'New booking', 'body' => 'You received order :number at :venue.'],
+    'payment_failed' => ['title' => 'Payment failed', 'body' => 'Your payment did not go through. You can retry before the reservation expires.'],
+    'refund_processed' => ['title' => 'Refund processed', 'body' => 'SAR :amount was refunded for order :number. It may take a few business days to appear.'],
+    'refund_rejected' => ['title' => 'Refund request declined', 'body' => 'The refund request for order :number was reviewed and declined.'],
+    'provider_approved' => ['title' => 'Account approved', 'body' => 'Welcome to Farah! :name is approved and you can now add your venues.'],
+    'provider_rejected' => ['title' => 'Account not approved', 'body' => 'Reason: :reason'],
+    'provider_suspended' => ['title' => 'Account suspended', 'body' => 'Your account is suspended. Reason: :reason'],
+    'document_approved' => ['title' => 'Document approved', 'body' => 'Your :type was approved.'],
+    'document_rejected' => ['title' => 'Document rejected', 'body' => 'Your :type was rejected. Reason: :reason'],
+    'document_expiring' => ['title' => 'Document expiring soon', 'body' => 'Your :type expires on :date. Please upload a renewed copy.'],
+    'venue_approved' => ['title' => 'Venue published', 'body' => ':venue was approved and is now open for bookings.'],
+    'venue_rejected' => ['title' => 'Venue not approved', 'body' => ':venue. Reason: :reason'],
+    'venue_suspended' => ['title' => 'Venue suspended', 'body' => ':venue was suspended. Reason: :reason'],
+    'settlement_paid' => ['title' => 'Settlement paid', 'body' => 'SAR :amount was transferred for settlement :number.'],
+    'sector_request_approved' => ['title' => 'Activity type request approved', 'body' => ':name was added to your account.'],
+    'sector_request_rejected' => ['title' => 'Activity type request declined', 'body' => ':name. Reason: :reason'],
+    'complaint_replied' => ['title' => 'Reply to your ticket', 'body' => 'Ticket :number has a new reply.'],
+    'dispute_resolved' => ['title' => 'Dispute resolved', 'body' => 'Dispute :number was closed.'],
+    'complaint_resolved' => ['title' => 'Ticket resolved', 'body' => 'Ticket :number was resolved. Reply in the app if you need more help.'],
+    'team_invited' => ['title' => 'You joined a team', 'body' => 'You were added to :provider as :role. Sign in with your phone number to start.'],
+    'campaign' => ['title' => ':title', 'body' => ':body'],
+];

@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'order_confirmed' => ['title' => 'تم تأكيد حجزك', 'body' => 'تم تأكيد الطلب :number في :venue. أظهر رمز الحجز من التطبيق عند وصولك.'],
+    'new_order' => ['title' => 'حجز جديد', 'body' => 'وصلك طلب جديد :number في :venue.'],
+    'payment_failed' => ['title' => 'فشل الدفع', 'body' => 'لم تتم عملية الدفع. يمكنك المحاولة مرة أخرى قبل انتهاء مهلة الحجز.'],
+    'refund_processed' => ['title' => 'تم الاسترداد', 'body' => 'تم استرداد :amount ر.س للطلب :number. قد يستغرق ظهور المبلغ عدة أيام عمل.'],
+    'refund_rejected' => ['title' => 'تعذّر قبول طلب الاسترداد', 'body' => 'تمت مراجعة طلب استرداد الطلب :number ولم يتم قبوله.'],
+    'provider_approved' => ['title' => 'تم اعتماد حسابك', 'body' => 'مرحباً بك في فرة! تم اعتماد :name ويمكنك الآن إضافة أماكنك.'],
+    'provider_rejected' => ['title' => 'لم يتم اعتماد الحساب', 'body' => 'السبب: :reason'],
+    'provider_suspended' => ['title' => 'تم إيقاف الحساب', 'body' => 'تم إيقاف حسابك مؤقتاً. السبب: :reason'],
+    'document_approved' => ['title' => 'تم قبول المستند', 'body' => 'تم قبول مستند :type.'],
+    'document_rejected' => ['title' => 'تم رفض المستند', 'body' => 'تم رفض مستند :type. السبب: :reason'],
+    'document_expiring' => ['title' => 'مستند قارب على الانتهاء', 'body' => 'ينتهي مستند :type بتاريخ :date. يرجى رفع نسخة محدثة.'],
+    'venue_approved' => ['title' => 'تم نشر المكان', 'body' => 'تمت الموافقة على :venue وأصبح متاحاً للحجز.'],
+    'venue_rejected' => ['title' => 'لم تتم الموافقة على المكان', 'body' => ':venue. السبب: :reason'],
+    'venue_suspended' => ['title' => 'تم إيقاف المكان', 'body' => 'تم إيقاف :venue. السبب: :reason'],
+    'settlement_paid' => ['title' => 'تم صرف التسوية', 'body' => 'تم تحويل :amount ر.س للتسوية :number.'],
+    'sector_request_approved' => ['title' => 'تم قبول طلب نوع النشاط', 'body' => 'تمت إضافة :name إلى حسابك.'],
+    'sector_request_rejected' => ['title' => 'لم يتم قبول طلب نوع النشاط', 'body' => ':name. السبب: :reason'],
+    'complaint_replied' => ['title' => 'رد على بلاغك', 'body' => 'تم الرد على البلاغ :number.'],
+    'dispute_resolved' => ['title' => 'تم البت في النزاع', 'body' => 'تم إغلاق النزاع :number.'],
+    'complaint_resolved' => ['title' => 'تم حل البلاغ', 'body' => 'تم حل البلاغ :number. يمكنك الرد من التطبيق إن احتجت مساعدة إضافية.'],
+    'team_invited' => ['title' => 'تمت إضافتك إلى فريق', 'body' => 'تمت إضافتك إلى :provider بصلاحية :role. سجّل الدخول برقم جوالك للبدء.'],
+    'campaign' => ['title' => ':title', 'body' => ':body'],
+];

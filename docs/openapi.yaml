@@ -1,0 +1,1858 @@
+openapi: 3.0.3
+info:
+  title: Farah API (فرة)
+  version: "1.0.0"
+  description: |
+    Customer and provider mobile API for Farah: booking entertainment / game venues by the hour.
+    Provider -> Venue -> Activity (priced per hour) -> Resource (table, lane, room) -> time slots
+    -> Booking -> Order -> Payment.
+    See docs/API.md for the narrative guide (auth flow, booking and payment flow, error codes).
+
+    * JSON only; send `Accept: application/json`.
+    * `Accept-Language: ar` (default) or `en`.
+    * Auth: `Authorization: Bearer <token>` from `POST /auth/otp/verify` (dev OTP code `1234`).
+    * Provider endpoints act for the provider in `X-Provider-Id` (default: first membership).
+    * Timestamps are UTC (ISO-8601). Working hours and slot `time` / `end_time` are wall-clock in the
+      business timezone (`timezone` in `/app/config`, Asia/Riyadh). `weekday` 0 = Sunday.
+      `closes_at` at or before `opens_at` means open past midnight.
+    * Prices are per hour; `slot_price = price_per_hour * slot_minutes / 60`.
+servers:
+  - url: http://localhost:8020/api/v1
+    description: Local
+tags:
+  - name: Auth
+  - name: Catalog
+  - name: Favorites
+  - name: Bookings
+  - name: Orders
+  - name: Engagement
+  - name: Payments
+  - name: Provider
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      schema: { type: string, enum: [ar, en], default: ar }
+    ProviderId:
+      name: X-Provider-Id
+      in: header
+      required: false
+      schema: { type: integer }
+      description: Provider account to act for (defaults to the user's first active membership).
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1 }
+    PerPage:
+      name: per_page
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50 }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    VenueId:
+      name: venue
+      in: path
+      required: true
+      schema: { type: integer }
+    ActivityId:
+      name: activity
+      in: path
+      required: true
+      schema: { type: integer }
+    ResourceId:
+      name: resource
+      in: path
+      required: true
+      schema: { type: integer }
+  responses:
+    Message:
+      description: OK
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Message' }
+    Unauthenticated:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: "يجب تسجيل الدخول.", code: unauthenticated }
+    Forbidden:
+      description: Suspended account, not a provider member, or missing permission
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: "...", code: missing_permission, permission: orders.view }
+    NotFound:
+      description: Not found (or not yours)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: "...", code: not_found }
+    Validation:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationError' }
+    Business:
+      description: Business rule violated (see `code`)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: "الموعد المختار خارج أوقات عمل المكان.", code: outside_hours }
+    SlotTaken:
+      description: One of the slots is held by someone else (or blocked)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { message: "تم حجز هذا الموعد للتو. يرجى اختيار موعد آخر.", code: slot_taken }
+  schemas:
+    Message:
+      type: object
+      properties:
+        message: { type: string }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        code: { type: string }
+        permission: { type: string }
+    ValidationError:
+      type: object
+      properties:
+        message: { type: string }
+        errors:
+          type: object
+          additionalProperties: { type: array, items: { type: string } }
+    EnumValue:
+      type: object
+      properties:
+        value: { type: string }
+        label: { type: string }
+        color: { type: string, enum: [gray, info, success, warning, danger, primary] }
+    PaginationLinks:
+      type: object
+      properties:
+        first: { type: string, nullable: true }
+        last: { type: string, nullable: true }
+        prev: { type: string, nullable: true }
+        next: { type: string, nullable: true }
+    PaginationMeta:
+      type: object
+      properties:
+        current_page: { type: integer }
+        from: { type: integer, nullable: true }
+        last_page: { type: integer }
+        per_page: { type: integer }
+        to: { type: integer, nullable: true }
+        total: { type: integer }
+        path: { type: string }
+    City:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string }
+        region: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+    Category:
+      type: object
+      properties:
+        id: { type: integer }
+        sector_id: { type: integer }
+        parent_id: { type: integer, nullable: true }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string }
+        slug: { type: string }
+        icon: { type: string, nullable: true }
+        image_url: { type: string, nullable: true }
+        children: { type: array, items: { $ref: '#/components/schemas/Category' } }
+    Sector:
+      type: object
+      description: Activity type (billiards, bowling, gaming, ...).
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string }
+        slug: { type: string, example: billiards }
+        icon: { type: string, nullable: true, example: billiards }
+        image_url: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        requires_license: { type: boolean }
+        venues_count: { type: integer, description: Bookable venues offering this activity type (GET /sectors only) }
+        categories: { type: array, items: { $ref: '#/components/schemas/Category' } }
+        approval_status: { type: string, enum: [pending, approved, rejected], description: Provider endpoints only }
+    SectorBrief:
+      type: object
+      description: Activity type as shown on venue cards and activities.
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        name: { type: string }
+        icon: { type: string, nullable: true }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, nullable: true }
+        phone: { type: string, nullable: true, example: "+966501234567" }
+        type: { $ref: '#/components/schemas/EnumValue' }
+        locale: { type: string, enum: [ar, en] }
+        avatar_url: { type: string, nullable: true }
+        city_id: { type: integer, nullable: true }
+        city: { $ref: '#/components/schemas/City' }
+        birth_date: { type: string, format: date, nullable: true }
+        gender: { type: string, enum: [male, female], nullable: true }
+        marketing_consent: { type: boolean }
+        tracking_consent: { type: boolean }
+        phone_verified: { type: boolean }
+        email_verified: { type: boolean }
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              status: { $ref: '#/components/schemas/EnumValue' }
+              role: { type: string, enum: [owner, manager, staff] }
+              permissions: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+    ProviderSummary:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string, nullable: true }
+        slug: { type: string }
+        type: { $ref: '#/components/schemas/EnumValue' }
+        logo_url: { type: string, nullable: true }
+        rating_avg: { type: number }
+        rating_count: { type: integer }
+    ProviderProfile:
+      allOf:
+        - $ref: '#/components/schemas/ProviderSummary'
+        - type: object
+          properties:
+            bio: { type: string, nullable: true }
+            cover_url: { type: string, nullable: true }
+            website: { type: string, nullable: true }
+            city: { $ref: '#/components/schemas/City' }
+            sectors: { type: array, items: { $ref: '#/components/schemas/Sector' } }
+            venues: { type: array, items: { $ref: '#/components/schemas/VenueCard' }, description: public profile only }
+            status: { $ref: '#/components/schemas/EnumValue' }
+            email: { type: string, nullable: true, description: own profile only }
+            phone: { type: string, nullable: true }
+            cr_number: { type: string, nullable: true }
+            national_id: { type: string, nullable: true }
+            vat_number: { type: string, nullable: true }
+            iban: { type: string, nullable: true }
+            bank_name: { type: string, nullable: true }
+            account_holder: { type: string, nullable: true }
+            rejection_reason: { type: string, nullable: true }
+    HoursToday:
+      type: object
+      nullable: true
+      description: Working hours of today's weekday (business timezone); null when closed today.
+      properties:
+        opens_at: { type: string, example: "16:00" }
+        closes_at: { type: string, example: "02:00" }
+    VenueCard:
+      type: object
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        name: { type: string }
+        summary: { type: string, nullable: true }
+        cover_url: { type: string, nullable: true }
+        min_price: { type: number, description: Lowest hourly price among the venue's active activities }
+        currency: { type: string, example: SAR }
+        is_featured: { type: boolean }
+        rating_avg: { type: number }
+        rating_count: { type: integer }
+        address: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        distance_km: { type: number, nullable: true, description: only when lat/lng were sent }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        is_favorite: { type: boolean }
+        is_open_now: { type: boolean }
+        today_hours: { $ref: '#/components/schemas/HoursToday' }
+        city: { $ref: '#/components/schemas/City' }
+        sectors: { type: array, items: { $ref: '#/components/schemas/SectorBrief' }, description: Types of the venue's active activities }
+        provider: { $ref: '#/components/schemas/ProviderSummary' }
+    VenueBrief:
+      type: object
+      description: The venue as shown inside a booking or an order.
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        name: { type: string }
+        cover_url: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        phone: { type: string, nullable: true }
+        city:
+          type: object
+          nullable: true
+          properties: { id: { type: integer }, name: { type: string } }
+    VenueMedia:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [image, video, gif] }
+        url: { type: string }
+        is_external: { type: boolean }
+        sort_order: { type: integer }
+    VenueHours:
+      type: object
+      properties:
+        weekday: { type: integer, minimum: 0, maximum: 6, description: 0 = Sunday }
+        day: { type: string, example: "الأحد" }
+        opens_at: { type: string, nullable: true, example: "16:00" }
+        closes_at: { type: string, nullable: true, example: "02:00", description: At or before opens_at = open past midnight }
+        is_closed: { type: boolean }
+    Resource:
+      type: object
+      description: The bookable unit of an activity (table, lane, room, court).
+      properties:
+        id: { type: integer }
+        activity_id: { type: integer }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string, nullable: true }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+    Activity:
+      type: object
+      properties:
+        id: { type: integer }
+        venue_id: { type: integer }
+        name: { type: string }
+        name_ar: { type: string }
+        name_en: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        description_ar: { type: string, nullable: true }
+        description_en: { type: string, nullable: true }
+        sector_id: { type: integer }
+        category_id: { type: integer, nullable: true }
+        sector: { $ref: '#/components/schemas/SectorBrief' }
+        price_per_hour: { type: number }
+        currency: { type: string }
+        slot_minutes: { type: integer, example: 60 }
+        slot_price: { type: number, description: price_per_hour * slot_minutes / 60 }
+        min_slots: { type: integer }
+        max_slots: { type: integer }
+        capacity: { type: integer, nullable: true, description: players per resource, informational }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+        resources_count: { type: integer, description: active resources }
+        resources: { type: array, items: { $ref: '#/components/schemas/Resource' }, description: Customers get active resources only }
+    Venue:
+      allOf:
+        - $ref: '#/components/schemas/VenueCard'
+        - type: object
+          properties:
+            name_ar: { type: string }
+            name_en: { type: string, nullable: true }
+            summary_ar: { type: string, nullable: true }
+            summary_en: { type: string, nullable: true }
+            description: { type: string, nullable: true }
+            description_ar: { type: string, nullable: true }
+            description_en: { type: string, nullable: true }
+            city_id: { type: integer, nullable: true }
+            phone: { type: string, nullable: true }
+            audience: { type: string, enum: [all, families, men, women, kids] }
+            min_age: { type: integer, nullable: true }
+            advance_booking_days: { type: integer, description: How far ahead customers can book }
+            is_bookable: { type: boolean }
+            refund_policy:
+              type: object
+              properties:
+                key: { type: string, enum: [none, flexible, moderate, strict] }
+                label: { type: string }
+                description: { type: string }
+                note: { type: string, nullable: true }
+                rules:
+                  type: array
+                  items: { type: object, properties: { min_hours_before_start: { type: integer }, refund_percent: { type: integer } } }
+            views_count: { type: integer }
+            media: { type: array, items: { $ref: '#/components/schemas/VenueMedia' } }
+            hours: { type: array, minItems: 7, maxItems: 7, items: { $ref: '#/components/schemas/VenueHours' }, description: Always 7 rows, Sunday first }
+            activities: { type: array, items: { $ref: '#/components/schemas/Activity' }, description: Customers get active activities only }
+            rejection_reason: { type: string, nullable: true, description: provider only }
+            submitted_at: { type: string, format: date-time, nullable: true, description: provider only }
+            published_at: { type: string, format: date-time, nullable: true }
+    HoursInput:
+      type: array
+      minItems: 1
+      maxItems: 7
+      description: Days left out keep their current hours. A day with is_closed or without both times is closed.
+      items:
+        type: object
+        required: [weekday]
+        properties:
+          weekday: { type: integer, minimum: 0, maximum: 6 }
+          opens_at: { type: string, nullable: true, example: "16:00" }
+          closes_at: { type: string, nullable: true, example: "02:00" }
+          is_closed: { type: boolean }
+    VenueInput:
+      type: object
+      description: city_id and name_ar are required on create.
+      properties:
+        city_id: { type: integer }
+        name_ar: { type: string }
+        name_en: { type: string }
+        summary_ar: { type: string }
+        summary_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        address: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        phone: { type: string }
+        audience: { type: string, enum: [all, families, men, women, kids] }
+        min_age: { type: integer }
+        refund_policy: { type: string, enum: [none, flexible, moderate, strict] }
+        refund_policy_note: { type: string }
+        advance_booking_days: { type: integer, minimum: 1, maximum: 365 }
+        cover: { type: string, format: binary, description: multipart only }
+        hours: { $ref: '#/components/schemas/HoursInput' }
+    ActivityInput:
+      type: object
+      description: sector_id, name_ar and price_per_hour are required on create.
+      properties:
+        sector_id: { type: integer, description: Activity type; must be approved for the provider }
+        category_id: { type: integer, nullable: true, description: Must belong to the sector }
+        name_ar: { type: string }
+        name_en: { type: string }
+        description_ar: { type: string }
+        description_en: { type: string }
+        price_per_hour: { type: number, minimum: 1 }
+        slot_minutes: { type: integer, minimum: 15, maximum: 480, multipleOf: 5, default: 60 }
+        min_slots: { type: integer, minimum: 1, maximum: 48, default: 1 }
+        max_slots: { type: integer, minimum: 1, maximum: 48, default: 4 }
+        capacity: { type: integer, nullable: true }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+        resources_count: { type: integer, minimum: 1, maximum: 100, description: "Create only: add this many resources named 1, 2, 3, ..." }
+    ResourceInput:
+      type: object
+      properties:
+        name_ar: { type: string, description: required on create }
+        name_en: { type: string }
+        is_active: { type: boolean }
+        sort_order: { type: integer }
+    BookingLine:
+      type: object
+      required: [activity_id, starts_at, slots]
+      properties:
+        activity_id: { type: integer }
+        resource_id: { type: integer, nullable: true, description: Omit to get the first free resource }
+        starts_at: { type: string, format: date-time, description: Start of the first slot. ISO-8601 with offset; without an offset it is read as wall-clock time in the business timezone }
+        slots: { type: integer, minimum: 1, description: Consecutive slots (min_slots..max_slots of the activity) }
+    BookingInput:
+      type: object
+      description: Either one flat booking line, or `lines` (several resources / activities of the same venue).
+      properties:
+        activity_id: { type: integer }
+        resource_id: { type: integer, nullable: true }
+        starts_at: { type: string, format: date-time }
+        slots: { type: integer, minimum: 1 }
+        lines: { type: array, minItems: 1, items: { $ref: '#/components/schemas/BookingLine' } }
+    Slot:
+      type: object
+      properties:
+        starts_at: { type: string, format: date-time, description: UTC }
+        ends_at: { type: string, format: date-time, description: UTC }
+        time: { type: string, example: "20:00", description: Wall clock in the business timezone }
+        end_time: { type: string, example: "21:00" }
+        status: { type: string, enum: [available, booked, past, closed], description: "closed = beyond the venue's advance booking window" }
+    Availability:
+      type: object
+      properties:
+        activity_id: { type: integer }
+        venue_id: { type: integer }
+        date: { type: string, format: date }
+        timezone: { type: string, example: Asia/Riyadh }
+        is_open: { type: boolean }
+        opens_at: { type: string, nullable: true, example: "16:00" }
+        closes_at: { type: string, nullable: true, example: "02:00" }
+        slot_minutes: { type: integer }
+        slot_price: { type: number }
+        currency: { type: string }
+        min_slots: { type: integer }
+        max_slots: { type: integer }
+        resources:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              slots: { type: array, items: { $ref: '#/components/schemas/Slot' } }
+    Booking:
+      type: object
+      description: One resource reserved for a run of consecutive slots.
+      properties:
+        id: { type: integer }
+        code: { type: string, example: K7M2XQ9PAB, description: Render as QR; scanned by the venue on arrival }
+        status: { allOf: [ { $ref: '#/components/schemas/EnumValue' } ], description: "value: pending | confirmed | checked_in | completed | cancelled | expired" }
+        name: { type: string, example: "بلياردو - طاولة 1" }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        slots: { type: integer }
+        slot_minutes: { type: integer }
+        unit_price: { type: number, description: per slot }
+        total: { type: number }
+        checked_in_at: { type: string, format: date-time, nullable: true }
+        activity: { type: object, properties: { id: { type: integer }, name: { type: string } } }
+        resource: { type: object, properties: { id: { type: integer }, name: { type: string } } }
+        venue: { $ref: '#/components/schemas/VenueBrief' }
+        order:
+          type: object
+          properties:
+            id: { type: integer }
+            number: { type: string }
+            status: { $ref: '#/components/schemas/EnumValue' }
+    Payment:
+      type: object
+      properties:
+        reference: { type: string, format: uuid }
+        amount: { type: number }
+        refunded_amount: { type: number }
+        currency: { type: string }
+        method: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        failure_reason: { type: string, nullable: true }
+        checkout_url: { type: string, nullable: true, description: only while status is initiated }
+        paid_at: { type: string, format: date-time, nullable: true }
+        orders:
+          type: array
+          items: { type: object, properties: { id: { type: integer }, number: { type: string }, status: { $ref: '#/components/schemas/EnumValue' } } }
+    Refund:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        order_id: { type: integer }
+        type: { type: string, enum: [full, partial] }
+        amount: { type: number }
+        items: { type: array, nullable: true, items: { type: object, properties: { booking_id: { type: integer } } } }
+        reason: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        admin_notes: { type: string, nullable: true }
+        processed_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    Order:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        channel: { type: string, enum: [online, offline] }
+        status: { allOf: [ { $ref: '#/components/schemas/EnumValue' } ], description: "value: pending_payment | confirmed | completed | cancelled | expired | partially_refunded | refunded" }
+        subtotal: { type: number }
+        discount: { type: number }
+        vat_amount: { type: number }
+        total: { type: number }
+        refunded_amount: { type: number }
+        currency: { type: string }
+        expires_at: { type: string, format: date-time, nullable: true, description: End of the payment window while pending_payment }
+        confirmed_at: { type: string, format: date-time, nullable: true }
+        cancelled_at: { type: string, format: date-time, nullable: true }
+        cancel_reason: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        venue: { $ref: '#/components/schemas/VenueBrief' }
+        provider: { $ref: '#/components/schemas/ProviderSummary' }
+        bookings: { type: array, items: { $ref: '#/components/schemas/Booking' }, description: Same shape as a booking on its own, including order and venue }
+        payment: { $ref: '#/components/schemas/Payment' }
+        refunds: { type: array, items: { $ref: '#/components/schemas/Refund' } }
+        has_review: { type: boolean }
+        customer: { type: object, description: provider only, properties: { name: { type: string }, phone: { type: string }, email: { type: string } } }
+        offline_payment_method: { type: string, nullable: true, description: provider only }
+        notes: { type: string, nullable: true, description: provider only }
+        commission_amount: { type: number, description: provider only }
+        provider_net: { type: number, description: provider only }
+    HomeSection:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string, nullable: true }
+        type: { type: string, enum: [banner, venues, categories, sectors, providers] }
+        layout: { type: string, enum: [hero, carousel, grid, list] }
+        source: { type: string }
+        items:
+          type: array
+          description: |
+            Each item has `kind`: venue (VenueCard fields), category (Category), sector (Sector),
+            provider (ProviderSummary) or banner {id, title, media_type, media_url, link{type, value}}.
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              kind: { type: string, enum: [venue, category, sector, provider, banner] }
+              link:
+                type: object
+                description: banner only
+                properties:
+                  type: { type: string, enum: [none, venue, category, sector, provider, url] }
+                  value: { type: string, nullable: true }
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        rating: { type: integer }
+        comment: { type: string, nullable: true }
+        user: { type: object, properties: { id: { type: integer }, name: { type: string } } }
+        venue: { type: object, description: provider lists only, properties: { id: { type: integer }, name: { type: string } } }
+        order_id: { type: integer, nullable: true }
+        provider_reply: { type: string, nullable: true }
+        replied_at: { type: string, format: date-time, nullable: true }
+        status: { type: string }
+        created_at: { type: string, format: date-time }
+    Complaint:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        type: { type: string, enum: [complaint, feedback, suggestion] }
+        subject: { type: string }
+        body: { type: string }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        order_id: { type: integer, nullable: true }
+        venue_id: { type: integer, nullable: true }
+        provider_id: { type: integer, nullable: true }
+        resolution: { type: string, nullable: true }
+        resolved_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        replies:
+          type: array
+          items: { type: object, properties: { id: { type: integer }, body: { type: string }, from_support: { type: boolean }, author: { type: string }, created_at: { type: string } } }
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string, example: order_confirmed }
+        title: { type: string }
+        body: { type: string }
+        data: { type: object, additionalProperties: true }
+        read: { type: boolean }
+        read_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    Document:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { $ref: '#/components/schemas/EnumValue' }
+        title: { type: string, nullable: true }
+        number: { type: string, nullable: true }
+        sector_id: { type: integer, nullable: true }
+        file_url: { type: string }
+        issued_at: { type: string, format: date, nullable: true }
+        expires_at: { type: string, format: date, nullable: true }
+        expiring_soon: { type: boolean }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        rejection_reason: { type: string, nullable: true }
+    SectorRequest:
+      type: object
+      properties:
+        id: { type: integer }
+        name_ar: { type: string }
+        name_en: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        admin_notes: { type: string, nullable: true }
+        sector_id: { type: integer, nullable: true }
+    Member:
+      type: object
+      properties:
+        id: { type: integer }
+        user_id: { type: integer }
+        name: { type: string }
+        phone: { type: string }
+        email: { type: string, nullable: true }
+        role: { type: string, enum: [owner, manager, staff] }
+        permissions:
+          type: array
+          items: { type: string, enum: ['*', venues.manage, orders.view, orders.manage, orders.offline, bookings.checkin, finance.view, team.manage, reviews.reply, profile.manage] }
+        is_active: { type: boolean }
+    LedgerEntry:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { $ref: '#/components/schemas/EnumValue' }
+        amount: { type: number }
+        description: { type: string }
+        order_id: { type: integer, nullable: true }
+        order_number: { type: string, nullable: true }
+        refund_id: { type: integer, nullable: true }
+        settlement_id: { type: integer, nullable: true }
+        state: { type: string, enum: [pending, available, in_settlement, paid_out] }
+        available_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    Settlement:
+      type: object
+      properties:
+        id: { type: integer }
+        number: { type: string }
+        period_from: { type: string, format: date }
+        period_to: { type: string, format: date }
+        gross_amount: { type: number }
+        commission_amount: { type: number }
+        refunds_amount: { type: number }
+        adjustments_amount: { type: number }
+        net_amount: { type: number }
+        status: { $ref: '#/components/schemas/EnumValue' }
+        payment_reference: { type: string, nullable: true }
+        receipt_url: { type: string, nullable: true }
+        paid_at: { type: string, format: date-time, nullable: true }
+        entries: { type: array, items: { $ref: '#/components/schemas/LedgerEntry' } }
+    ScheduleSlot:
+      type: object
+      properties:
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        time: { type: string, example: "20:00" }
+        end_time: { type: string, example: "21:00" }
+        status: { type: string, enum: [available, booked, blocked, past], description: A slot that already started stays available until it ends (counter sale) }
+        slot_id: { type: integer, nullable: true, description: "Blocked slots only: id for DELETE .../blocks/{slot}" }
+        block_reason: { type: string, nullable: true }
+        booking:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            code: { type: string }
+            status: { $ref: '#/components/schemas/EnumValue' }
+            starts_at: { type: string, format: date-time }
+            ends_at: { type: string, format: date-time }
+            slots: { type: integer }
+            total: { type: number }
+            checked_in_at: { type: string, format: date-time, nullable: true }
+            order:
+              type: object
+              nullable: true
+              properties:
+                id: { type: integer }
+                number: { type: string }
+                channel: { type: string, enum: [online, offline] }
+                status: { $ref: '#/components/schemas/EnumValue' }
+            customer:
+              type: object
+              nullable: true
+              description: null unless the member has orders.view or bookings.checkin
+              properties: { name: { type: string }, phone: { type: string, nullable: true } }
+    Schedule:
+      type: object
+      properties:
+        venue_id: { type: integer }
+        date: { type: string, format: date }
+        timezone: { type: string }
+        is_open: { type: boolean }
+        opens_at: { type: string, nullable: true }
+        closes_at: { type: string, nullable: true }
+        activities:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              is_active: { type: boolean }
+              slot_minutes: { type: integer }
+              slot_price: { type: number }
+              min_slots: { type: integer }
+              max_slots: { type: integer }
+              resources:
+                type: array
+                description: Active resources only
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+                    slots: { type: array, items: { $ref: '#/components/schemas/ScheduleSlot' } }
+
+security:
+  - bearer: []
+
+paths:
+  # ------------------------------------------------------------------ Auth
+  /auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: Send an OTP to a phone or email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [identifier], properties: { identifier: { type: string, example: "0501234567" } } }
+      responses:
+        '200':
+          description: Sent
+          content:
+            application/json:
+              example: { message: "تم إرسال رمز التحقق.", data: { identifier: "+966501234567", channel: sms, expires_in: 300, resend_in: 60 } }
+        '422': { $ref: '#/components/responses/Validation' }
+        '429': { $ref: '#/components/responses/Business' }
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and receive a token (registers new customers)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, code]
+              properties:
+                identifier: { type: string }
+                code: { type: string, example: "1234" }
+                device_name: { type: string }
+                locale: { type: string, enum: [ar, en] }
+      responses:
+        '200':
+          description: Token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token: { type: string }
+                      token_type: { type: string, example: Bearer }
+                      is_new: { type: boolean }
+                      user: { $ref: '#/components/schemas/User' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Business' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the current token
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+  /me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200': { description: User, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/User' } } } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Auth]
+      summary: Update profile (use POST multipart for avatar)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                email: { type: string }
+                city_id: { type: integer }
+                birth_date: { type: string, format: date }
+                gender: { type: string, enum: [male, female] }
+                locale: { type: string, enum: [ar, en] }
+                marketing_consent: { type: boolean }
+                tracking_consent: { type: boolean }
+      responses:
+        '200': { description: User, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/User' } } } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+    post:
+      tags: [Auth]
+      summary: Update profile with avatar upload (multipart)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { avatar: { type: string, format: binary }, name: { type: string } } }
+      responses:
+        '200': { description: User }
+    delete:
+      tags: [Auth]
+      summary: Delete account
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+  /me/device-tokens:
+    post:
+      tags: [Auth]
+      summary: Register a push token
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [token, platform], properties: { token: { type: string }, platform: { type: string, enum: [ios, android, web] } } }
+      responses:
+        '201': { $ref: '#/components/responses/Message' }
+    delete:
+      tags: [Auth]
+      summary: Remove a push token
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [token], properties: { token: { type: string } } }
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+
+  # --------------------------------------------------------------- Catalog
+  /app/config:
+    get:
+      tags: [Catalog]
+      summary: Platform configuration
+      security: []
+      responses:
+        '200': { description: "Config (platform_name, currency, vat_rate, prices_include_vat, support, min_app_version, maintenance_mode, order_payment_timeout_minutes, max_bookings_per_order, timezone, otp, refund_policies, audiences, pages)" }
+  /cities:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Active cities
+      responses:
+        '200': { description: Cities, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/City' } } } } } } }
+  /sectors:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Activity types (billiards, bowling, ...) with categories and venues_count
+      responses:
+        '200': { description: Sectors, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Sector' } } } } } } }
+  /categories:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Categories (sub-types of an activity type)
+      parameters:
+        - { name: sector_id, in: query, schema: { type: integer } }
+        - { name: parent_id, in: query, schema: { type: integer }, description: "0 or empty = top level" }
+      responses:
+        '200': { description: Categories, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Category' } } } } } } }
+  /home:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Home feed sections (banners, venue rows, activity types, providers)
+      parameters:
+        - { name: city_id, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Sections, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/HomeSection' } } } } } } }
+  /venues:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Search and filter venues
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - { name: q, in: query, schema: { type: string }, description: "Venue name, summary, address or activity name" }
+        - { name: sector_id, in: query, schema: { type: integer }, description: Venues with an active activity of this type }
+        - { name: category_id, in: query, schema: { type: integer }, description: Includes sub-categories }
+        - { name: city_id, in: query, schema: { type: integer } }
+        - { name: provider_id, in: query, schema: { type: integer } }
+        - { name: price_min, in: query, schema: { type: number }, description: On min_price (cheapest hourly price) }
+        - { name: price_max, in: query, schema: { type: number } }
+        - { name: audience, in: query, schema: { type: string, enum: [all, families, men, women, kids] } }
+        - { name: featured, in: query, schema: { type: boolean } }
+        - { name: lat, in: query, schema: { type: number }, description: Required with lng }
+        - { name: lng, in: query, schema: { type: number }, description: Required with lat }
+        - { name: radius, in: query, schema: { type: number, default: 50, minimum: 1, maximum: 500 }, description: km }
+        - { name: sort, in: query, schema: { type: string, enum: [recommended, price, rating, nearest, latest] }, description: "Default: nearest when lat/lng are sent, otherwise recommended (featured first, then best rated)" }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Paginated venues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/VenueCard' } }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+        '422': { $ref: '#/components/responses/Validation' }
+  /venues/{idOrSlug}:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Venue details (hours, media, activities with resources)
+      parameters:
+        - { name: idOrSlug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Venue, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Venue' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /venues/{venue}/reviews:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Published reviews (meta has rating_avg, rating_count, distribution)
+      parameters: [ { $ref: '#/components/parameters/VenueId' }, { $ref: '#/components/parameters/Page' } ]
+      responses:
+        '200': { description: Reviews, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Review' } } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /venues/{venue}/similar:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Similar venues
+      parameters: [ { $ref: '#/components/parameters/VenueId' }, { name: limit, in: query, schema: { type: integer, maximum: 30 } } ]
+      responses:
+        '200': { description: Venues, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/VenueCard' } } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /activities/{activity}/availability:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Every slot of an activity on one day, per resource
+      parameters:
+        - $ref: '#/components/parameters/ActivityId'
+        - { name: date, in: query, schema: { type: string, format: date }, description: "Calendar date in the business timezone (YYYY-MM-DD); today when omitted" }
+      responses:
+        '200': { description: Availability, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Availability' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/Validation' }
+  /recommendations:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Personalised recommendations
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, maximum: 30 } }
+        - { name: city_id, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Venues, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/VenueCard' } } } } } } }
+  /providers/{provider}:
+    get:
+      tags: [Catalog]
+      security: [{}, { bearer: [] }]
+      summary: Public provider profile with its venues
+      parameters: [ { name: provider, in: path, required: true, schema: { type: integer } } ]
+      responses:
+        '200': { description: Provider, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/ProviderProfile' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /pages/{slug}:
+    get:
+      tags: [Catalog]
+      security: []
+      summary: Static page
+      parameters: [ { name: slug, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: "{slug, title, body, updated_at}" }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /track:
+    post:
+      tags: [Engagement]
+      security: [{}, { bearer: [] }]
+      summary: Behaviour signals for recommendations (stored only with consent)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [events]
+              properties:
+                device_id: { type: string }
+                consent: { type: boolean }
+                events:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string, enum: [view_venue, view_category, search, favorite, start_booking, purchase, share] }
+                      subject_type: { type: string, enum: [venue, category, sector, provider] }
+                      subject_id: { type: integer }
+                      properties: { type: object }
+                      occurred_at: { type: string, format: date-time }
+      responses:
+        '202': { description: "{data: {stored: N}}" }
+
+  # ------------------------------------------------------------- Favorites
+  /favorites:
+    get:
+      tags: [Favorites]
+      summary: My favorite venues
+      responses:
+        '200': { description: Paginated VenueCard }
+  /favorites/{venue}:
+    parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+    post:
+      tags: [Favorites]
+      summary: Add to favorites
+      responses:
+        '201': { description: "{data: {venue_id, is_favorite: true}}" }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Favorites]
+      summary: Remove from favorites
+      responses:
+        '200': { description: "{data: {venue_id, is_favorite: false}}" }
+
+  # -------------------------------------------------------------- Bookings
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Book slots - creates one pending order (slots held for the payment window) and a payment session
+      description: |
+        The same request repeated within 15 seconds returns the same order and payment (double-submit protection).
+        Business errors (422 unless noted): slot_taken (409), outside_hours, slots_range, slot_in_past, too_far_ahead,
+        resource_unavailable, activity_unavailable, not_bookable, one_venue_per_order, max_per_order, booking_empty.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingInput' }
+            example: { activity_id: 7, resource_id: 21, starts_at: "2026-10-09T17:00:00+00:00", slots: 2 }
+      responses:
+        '201':
+          description: Order + payment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      order: { $ref: '#/components/schemas/Order' }
+                      payment: { $ref: '#/components/schemas/Payment' }
+        '409': { $ref: '#/components/responses/SlotTaken' }
+        '422': { $ref: '#/components/responses/Business' }
+    get:
+      tags: [Bookings]
+      summary: My bookings
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [upcoming, past, all], default: upcoming }, description: "upcoming = not finished and not ended yet (soonest first, includes pending); past = completed / cancelled / expired or ended" }
+        - { name: status, in: query, schema: { type: string }, description: comma separated booking statuses }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Paginated bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Booking' } }
+                  links: { $ref: '#/components/schemas/PaginationLinks' }
+                  meta: { $ref: '#/components/schemas/PaginationMeta' }
+  /bookings/{id}:
+    get:
+      tags: [Bookings]
+      summary: One of my bookings
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Booking, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Booking' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /payments/{reference}:
+    get:
+      tags: [Payments]
+      summary: Poll a payment
+      parameters: [ { name: reference, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { description: Payment, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Payment' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /payments/webhook:
+    post:
+      tags: [Payments]
+      summary: Payment gateway webhook (server to server)
+      security: []
+      parameters:
+        - { name: X-Signature, in: header, required: true, schema: { type: string }, description: hex HMAC-SHA256 of the raw body }
+      requestBody:
+        content:
+          application/json:
+            example: { id: evt_123, type: payment.paid, data: { reference: "uuid", id: pay_abc, method: mada } }
+      responses:
+        '200': { description: "{received: true, duplicate: bool}" }
+        '401': { $ref: '#/components/responses/Business' }
+
+  # ----------------------------------------------------------------- Orders
+  /orders:
+    get:
+      tags: [Orders]
+      summary: My orders
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: comma separated }
+        - { name: scope, in: query, schema: { type: string, enum: [upcoming, past] }, description: upcoming = has a booking that has not ended yet }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200': { description: Paginated Order (venue, provider, bookings, has_review) }
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Order details (venue, bookings, payment, refunds)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Order, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Order' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /orders/{id}/pay:
+    post:
+      tags: [Orders]
+      summary: New payment session for a pending order (slots stay held until the order expires)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '201': { description: "{data: {payment}}" }
+        '422': { $ref: '#/components/responses/Business' }
+  /orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel an unpaid order (its slots go back on sale)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { reason: { type: string } } }
+      responses:
+        '200': { description: Order }
+        '422': { $ref: '#/components/responses/Business' }
+  /orders/{id}/refund-quote:
+    get:
+      tags: [Orders]
+      summary: What the venue's refund policy allows right now
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: "{policy, hours_before_start, percent, amount, refundable_amount, eligible}" }
+  /orders/{id}/refund:
+    post:
+      tags: [Orders]
+      summary: Request a refund (reviewed by the admin team)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+                items:
+                  type: array
+                  description: Omit for a full refund; list the bookings to give up for a partial one.
+                  items: { type: object, required: [booking_id], properties: { booking_id: { type: integer } } }
+      responses:
+        '201': { description: Refund, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Refund' } } } } } }
+        '422': { $ref: '#/components/responses/Business' }
+
+  # ------------------------------------------------------------ Engagement
+  /reviews:
+    post:
+      tags: [Engagement]
+      summary: Review a venue you booked (once per order)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [order_id, rating], properties: { order_id: { type: integer }, rating: { type: integer, minimum: 1, maximum: 5 }, comment: { type: string } } }
+      responses:
+        '201': { description: Review }
+        '403': { $ref: '#/components/responses/Business' }
+  /complaints:
+    get:
+      tags: [Engagement]
+      summary: My complaints
+      responses:
+        '200': { description: Paginated Complaint }
+    post:
+      tags: [Engagement]
+      summary: Open a complaint / feedback / suggestion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, subject, body]
+              properties:
+                type: { type: string, enum: [complaint, feedback, suggestion] }
+                subject: { type: string }
+                body: { type: string }
+                order_id: { type: integer }
+                venue_id: { type: integer }
+      responses:
+        '201': { description: Complaint }
+  /complaints/{id}:
+    get:
+      tags: [Engagement]
+      summary: Complaint with replies
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Complaint, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Complaint' } } } } } }
+  /complaints/{id}/replies:
+    post:
+      tags: [Engagement]
+      summary: Reply to a complaint
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [body], properties: { body: { type: string } } }
+      responses:
+        '200': { description: Complaint }
+  /notifications:
+    get:
+      tags: [Engagement]
+      summary: Notifications (meta.unread_count)
+      parameters: [ { name: unread, in: query, schema: { type: boolean } } ]
+      responses:
+        '200': { description: Paginated Notification }
+  /notifications/unread-count:
+    get:
+      tags: [Engagement]
+      summary: Unread count
+      responses:
+        '200': { description: "{data: {unread_count}}" }
+  /notifications/{id}/read:
+    post:
+      tags: [Engagement]
+      summary: Mark one as read
+      parameters: [ { name: id, in: path, required: true, schema: { type: string } } ]
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+  /notifications/read-all:
+    post:
+      tags: [Engagement]
+      summary: Mark all as read
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+
+  # --------------------------------------------------------------- Provider
+  /provider/register:
+    post:
+      tags: [Provider]
+      summary: Apply as a provider
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, name_ar, city_id, sector_ids]
+              properties:
+                type: { type: string, enum: [individual, establishment] }
+                name_ar: { type: string }
+                name_en: { type: string }
+                bio_ar: { type: string }
+                bio_en: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                website: { type: string }
+                city_id: { type: integer }
+                address: { type: string }
+                lat: { type: number }
+                lng: { type: number }
+                national_id: { type: string, description: required for individual }
+                cr_number: { type: string, description: required for establishment }
+                legal_name: { type: string }
+                vat_number: { type: string }
+                bank_name: { type: string }
+                iban: { type: string, example: SA0380000000608010167519 }
+                account_holder: { type: string }
+                sector_ids: { type: array, items: { type: integer } }
+      responses:
+        '201': { description: ProviderProfile }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/dashboard:
+    get:
+      tags: [Provider]
+      summary: Provider home KPIs
+      parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+      responses:
+        '200':
+          description: |
+            {provider, membership{role, permissions}, venues{by_status, total, list[VenueCard]},
+            bookings{today, checked_in_today, this_month, next[Booking]|null}, orders{today, this_month, recent[Order]}|null,
+            sales{this_month, net_this_month, balances, currency}|null, reviews{rating_avg, rating_count, unreplied},
+            documents{pending, rejected, expired}}. orders needs orders.view, sales needs finance.view,
+            bookings.next needs orders.view or bookings.checkin.
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /provider/profile:
+    parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+    get:
+      tags: [Provider]
+      summary: Own provider profile
+      responses:
+        '200': { description: ProviderProfile, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/ProviderProfile' } } } } } }
+    put:
+      tags: [Provider]
+      summary: Update profile (profile.manage)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { name_ar: { type: string }, bio_ar: { type: string }, iban: { type: string }, city_id: { type: integer } } }
+      responses:
+        '200': { description: ProviderProfile }
+    post:
+      tags: [Provider]
+      summary: Update profile with logo/cover (multipart)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { logo: { type: string, format: binary }, cover: { type: string, format: binary } } }
+      responses:
+        '200': { description: ProviderProfile }
+  /provider/documents:
+    parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+    get:
+      tags: [Provider]
+      summary: Verification documents
+      responses:
+        '200': { description: Documents, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Document' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Upload (or re-upload with replaces_id) a document
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [type, file]
+              properties:
+                type: { type: string, enum: [national_id, commercial_register, license, vat_certificate, iban_letter, other] }
+                file: { type: string, format: binary }
+                title: { type: string }
+                number: { type: string }
+                sector_id: { type: integer }
+                issued_at: { type: string, format: date }
+                expires_at: { type: string, format: date }
+                replaces_id: { type: integer }
+      responses:
+        '201': { description: Document }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/sectors:
+    get:
+      tags: [Provider]
+      summary: Provider activity types with approval_status
+      parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+      responses:
+        '200': { description: Sectors }
+  /provider/sector-requests:
+    parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+    get:
+      tags: [Provider]
+      summary: Sector requests
+      responses:
+        '200': { description: SectorRequest list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/SectorRequest' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Join an existing activity type (sector_id) or propose a new one (name_ar)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { sector_id: { type: integer }, name_ar: { type: string }, name_en: { type: string }, description: { type: string } } }
+      responses:
+        '201': { description: SectorRequest }
+  /provider/venues:
+    parameters: [ { $ref: '#/components/parameters/ProviderId' } ]
+    get:
+      tags: [Provider]
+      summary: Own venues (any status)
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: "comma separated: draft, pending_review, published, rejected, suspended" }
+        - { name: q, in: query, schema: { type: string } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200': { description: Paginated Venue }
+    post:
+      tags: [Provider]
+      summary: Create a draft venue (venues.manage)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenueInput' }
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/VenueInput' }
+      responses:
+        '201': { description: Venue, content: { application/json: { schema: { type: object, properties: { message: { type: string }, data: { $ref: '#/components/schemas/Venue' } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/Validation' }
+  /provider/venues/{venue}:
+    parameters: [ { $ref: '#/components/parameters/VenueId' }, { $ref: '#/components/parameters/ProviderId' } ]
+    get:
+      tags: [Provider]
+      summary: Own venue
+      responses:
+        '200': { description: Venue, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Venue' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Provider]
+      summary: Update venue (JSON). Editing a published / rejected venue sends it back to pending_review
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VenueInput' }
+      responses:
+        '200': { description: Venue }
+        '422': { $ref: '#/components/responses/Business' }
+    post:
+      tags: [Provider]
+      summary: Update venue (multipart with cover)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/VenueInput' }
+      responses:
+        '200': { description: Venue }
+        '422': { $ref: '#/components/responses/Business' }
+    delete:
+      tags: [Provider]
+      summary: Delete a venue without orders (venue_has_orders otherwise)
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/venues/{venue}/submit:
+    post:
+      tags: [Provider]
+      summary: Submit for admin review (wrong_status, provider_not_approved, no_activities, no_hours)
+      parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+      responses:
+        '200': { description: Venue }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/venues/{venue}/hours:
+    parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+    get:
+      tags: [Provider]
+      summary: Weekly working hours (7 rows)
+      responses:
+        '200': { description: Hours, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/VenueHours' } } } } } } }
+    put:
+      tags: [Provider]
+      summary: Replace the hours of the days sent (venues.manage). Applies at once, no re-review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [hours], properties: { hours: { $ref: '#/components/schemas/HoursInput' } } }
+      responses:
+        '200': { description: Hours, content: { application/json: { schema: { type: object, properties: { message: { type: string }, data: { type: array, items: { $ref: '#/components/schemas/VenueHours' } } } } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+  /provider/venues/{venue}/media:
+    parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+    get:
+      tags: [Provider]
+      summary: Venue gallery
+      responses:
+        '200': { description: VenueMedia list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/VenueMedia' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Add media (file upload or external URL)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema: { type: object, properties: { file: { type: string, format: binary }, sort_order: { type: integer } } }
+          application/json:
+            schema: { type: object, properties: { url: { type: string }, sort_order: { type: integer } } }
+      responses:
+        '201': { description: VenueMedia }
+        '422': { $ref: '#/components/responses/Validation' }
+  /provider/venues/{venue}/media/order:
+    put:
+      tags: [Provider]
+      summary: Reorder media
+      parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [ids], properties: { ids: { type: array, items: { type: integer } } } }
+      responses:
+        '200': { description: VenueMedia list }
+  /provider/venues/{venue}/media/{media}:
+    delete:
+      tags: [Provider]
+      summary: Delete media
+      parameters: [ { $ref: '#/components/parameters/VenueId' }, { name: media, in: path, required: true, schema: { type: integer } } ]
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+  /provider/venues/{venue}/activities:
+    parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+    get:
+      tags: [Provider]
+      summary: Activities of the venue with their resources
+      responses:
+        '200': { description: Activity list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Activity' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Add an activity (venues.manage). The sector must be approved for the provider
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivityInput' }
+      responses:
+        '201': { description: Activity, content: { application/json: { schema: { type: object, properties: { message: { type: string }, data: { $ref: '#/components/schemas/Activity' } } } } } }
+        '403': { description: sector_not_allowed (or missing permission), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Validation' }
+  /provider/venues/{venue}/activities/{activity}:
+    parameters: [ { $ref: '#/components/parameters/VenueId' }, { $ref: '#/components/parameters/ActivityId' } ]
+    get:
+      tags: [Provider]
+      summary: One activity
+      responses:
+        '200': { description: Activity, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Activity' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Provider]
+      summary: Update an activity (new prices apply to new bookings; slot_minutes locked while it has upcoming bookings)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActivityInput' }
+      responses:
+        '200': { description: Activity }
+        '403': { description: sector_not_allowed, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { $ref: '#/components/responses/Business' }
+    delete:
+      tags: [Provider]
+      summary: Delete a never-booked activity (activity_has_bookings otherwise)
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/venues/{venue}/activities/{activity}/resources:
+    parameters: [ { $ref: '#/components/parameters/VenueId' }, { $ref: '#/components/parameters/ActivityId' } ]
+    get:
+      tags: [Provider]
+      summary: Resources of an activity
+      responses:
+        '200': { description: Resource list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Resource' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Add a resource (table, lane, room)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResourceInput' }
+      responses:
+        '201': { description: Resource }
+        '422': { $ref: '#/components/responses/Validation' }
+  /provider/venues/{venue}/activities/{activity}/resources/{resource}:
+    parameters: [ { $ref: '#/components/parameters/VenueId' }, { $ref: '#/components/parameters/ActivityId' }, { $ref: '#/components/parameters/ResourceId' } ]
+    put:
+      tags: [Provider]
+      summary: Update a resource (deactivating stops new bookings only)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ResourceInput' }
+      responses:
+        '200': { description: Resource }
+    delete:
+      tags: [Provider]
+      summary: Delete a never-booked resource (resource_has_bookings otherwise)
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/venues/{venue}/schedule:
+    get:
+      tags: [Provider]
+      summary: The day at the counter - every slot of every resource with its booking
+      parameters:
+        - $ref: '#/components/parameters/VenueId'
+        - { name: date, in: query, schema: { type: string, format: date }, description: Today when omitted }
+        - { name: activity_id, in: query, schema: { type: integer } }
+      responses:
+        '200': { description: Schedule, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Schedule' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /provider/venues/{venue}/blocks:
+    post:
+      tags: [Provider]
+      summary: Take slots of a resource out of sale (venues.manage)
+      parameters: [ { $ref: '#/components/parameters/VenueId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource_id, starts_at, slots]
+              properties:
+                resource_id: { type: integer }
+                starts_at: { type: string, format: date-time }
+                slots: { type: integer, minimum: 1, maximum: 96 }
+                reason: { type: string }
+      responses:
+        '201': { description: "{message, data: {blocked: N, slots: [{slot_id, resource_id, starts_at, ends_at, block_reason}]}}" }
+        '409': { $ref: '#/components/responses/SlotTaken' }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/venues/{venue}/blocks/{slot}:
+    delete:
+      tags: [Provider]
+      summary: Put one blocked slot back on sale (slot_id from the schedule)
+      parameters: [ { $ref: '#/components/parameters/VenueId' }, { name: slot, in: path, required: true, schema: { type: integer } } ]
+      responses:
+        '200': { $ref: '#/components/responses/Message' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/SlotTaken' }
+  /provider/orders:
+    get:
+      tags: [Provider]
+      summary: Orders of my venues (orders.view)
+      parameters:
+        - $ref: '#/components/parameters/ProviderId'
+        - { name: venue_id, in: query, schema: { type: integer } }
+        - { name: status, in: query, schema: { type: string } }
+        - { name: channel, in: query, schema: { type: string, enum: [online, offline] } }
+        - { name: q, in: query, schema: { type: string }, description: "Order number, customer name / phone, or a booking code" }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200': { description: Paginated Order }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /provider/orders/{id}:
+    get:
+      tags: [Provider]
+      summary: Order detail (orders.view)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Order, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Order' } } } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /provider/orders/offline:
+    post:
+      tags: [Provider]
+      summary: Counter booking paid in cash / transfer / POS (orders.offline) - confirmed at once
+      description: |
+        Same booking lines as POST /bookings. A slot that already started can still be sold until it ends and the
+        advance booking limit does not apply. 403 forbidden when the activity belongs to another provider's venue.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/BookingInput'
+                - type: object
+                  required: [payment_method, customer]
+                  properties:
+                    payment_method: { type: string, enum: [cash, transfer, pos] }
+                    customer:
+                      type: object
+                      required: [name]
+                      properties: { name: { type: string }, phone: { type: string }, email: { type: string }, notes: { type: string } }
+      responses:
+        '201': { description: Confirmed Order with bookings, content: { application/json: { schema: { type: object, properties: { message: { type: string }, data: { $ref: '#/components/schemas/Order' } } } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/SlotTaken' }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/bookings/check-in:
+    post:
+      tags: [Provider]
+      summary: Check a booking code in on arrival (bookings.checkin)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [code], properties: { code: { type: string }, venue_id: { type: integer, description: Guards against a code of another branch } } }
+      responses:
+        '200': { description: Booking, content: { application/json: { schema: { type: object, properties: { message: { type: string }, data: { $ref: '#/components/schemas/Booking' } } } } } }
+        '404': { description: booking_not_found, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '409': { description: booking_used / booking_finished / booking_cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /provider/members:
+    get:
+      tags: [Provider]
+      summary: Team (team.manage)
+      responses:
+        '200': { description: Member list, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { $ref: '#/components/schemas/Member' } } } } } } }
+    post:
+      tags: [Provider]
+      summary: Invite a member by phone
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, role]
+              properties:
+                phone: { type: string }
+                name: { type: string }
+                role: { type: string, enum: [manager, staff] }
+                permissions: { type: array, items: { type: string } }
+      responses:
+        '201': { description: Member }
+        '422': { $ref: '#/components/responses/Business' }
+  /provider/members/{id}:
+    parameters: [ { $ref: '#/components/parameters/Id' } ]
+    put:
+      tags: [Provider]
+      summary: Update role / permissions / active flag
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { role: { type: string, enum: [manager, staff] }, permissions: { type: array, items: { type: string } }, is_active: { type: boolean } } }
+      responses:
+        '200': { description: Member }
+        '403': { $ref: '#/components/responses/Business' }
+    delete:
+      tags: [Provider]
+      summary: Deactivate member
+      responses:
+        '200': { description: Member }
+  /provider/finance/balances:
+    get:
+      tags: [Provider]
+      summary: Wallet balances (finance.view)
+      responses:
+        '200': { description: "{pending, available, in_settlement, paid_out, lifetime_sales, lifetime_commission, currency, bank}" }
+  /provider/finance/ledger:
+    get:
+      tags: [Provider]
+      summary: Ledger statement
+      parameters:
+        - { name: type, in: query, schema: { type: string }, description: "sale,commission,refund,commission_reversal,payout,adjustment" }
+        - { name: order_id, in: query, schema: { type: integer } }
+        - { name: date_from, in: query, schema: { type: string, format: date } }
+        - { name: date_to, in: query, schema: { type: string, format: date } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        '200': { description: Paginated LedgerEntry }
+  /provider/finance/settlements:
+    get:
+      tags: [Provider]
+      summary: Settlements
+      parameters: [ { name: status, in: query, schema: { type: string } } ]
+      responses:
+        '200': { description: Paginated Settlement }
+  /provider/finance/settlements/{id}:
+    get:
+      tags: [Provider]
+      summary: Settlement with entries
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Settlement, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Settlement' } } } } } }
+  /provider/reviews:
+    get:
+      tags: [Provider]
+      summary: Reviews of my venues
+      parameters:
+        - { name: venue_id, in: query, schema: { type: integer } }
+        - { name: rating, in: query, schema: { type: integer } }
+        - { name: replied, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: Paginated Review }
+  /provider/reviews/{id}/reply:
+    post:
+      tags: [Provider]
+      summary: Public reply (reviews.reply)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, required: [reply], properties: { reply: { type: string } } }
+      responses:
+        '200': { description: Review }
