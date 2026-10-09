@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Providers\Pages;
 
 use App\Enums\InternalRating;
 use App\Enums\ProviderStatus;
-use App\Enums\ProviderType;
 use App\Filament\Resources\Providers\ProviderResource;
 use App\Filament\Support\Act;
 use App\Models\Provider;
@@ -17,7 +16,6 @@ use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Illuminate\Support\Carbon;
 
@@ -50,16 +48,6 @@ class ViewProvider extends ViewRecord
 
             Act::withReason('reject', __('admin.actions.reject'), fn (Provider $r, string $reason) => $this->service()->reject($r, auth()->user(), $reason))
                 ->visible(fn () => $can() && $p->status === ProviderStatus::Pending),
-
-            Action::make('verify_wathq')->label(__('admin.actions.verify_wathq'))->icon('heroicon-o-shield-check')->color('info')
-                ->visible(fn () => $can() && $p->type === ProviderType::Establishment)
-                ->requiresConfirmation()
-                ->action(function () use ($p) {
-                    $result = Act::run(fn () => $this->service()->verifyWithWathq($p), __('admin.providers.wathq_checked'));
-                    if ($result && ! $result['active']) {
-                        Notification::make()->warning()->title($result['found'] ? __('admin.providers.wathq_inactive') : __('admin.providers.wathq_not_found'))->send();
-                    }
-                }),
 
             Action::make('rating')->label(__('admin.actions.internal_rating'))->icon('heroicon-o-swatch')->color('gray')
                 ->visible($can)

@@ -27,9 +27,14 @@ class AuthTest extends ApiTestCase
             ->assertOk()
             ->assertJsonPath('data.phone', '+966501234567');
 
-        $this->withToken($token)->putJson('/api/v1/me', ['name' => 'Sara', 'tracking_consent' => true])
+        // The name needs a first name and a family name.
+        foreach (['S', 'Sara', 'Sara A'] as $short) {
+            $this->withToken($token)->putJson('/api/v1/me', ['name' => $short])->assertStatus(422)->assertJsonValidationErrors(['name']);
+        }
+
+        $this->withToken($token)->putJson('/api/v1/me', ['name' => 'Sara Ahmed', 'tracking_consent' => true])
             ->assertOk()
-            ->assertJsonPath('data.name', 'Sara');
+            ->assertJsonPath('data.name', 'Sara Ahmed');
 
         // Second login: existing user, not new.
         $this->travel(2)->minutes();

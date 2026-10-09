@@ -6,6 +6,7 @@ use App\Filament\Provider\Pages\Auth\RegisterProvider;
 use App\Filament\Provider\Pages\Dashboard;
 use App\Filament\Provider\Pages\EditProviderProfile;
 use App\Filament\Provider\ProviderNavGroup;
+use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Brand;
 use App\Http\Middleware\SetAdminLocale;
@@ -44,6 +45,8 @@ class ProviderPanelProvider extends PanelProvider
             ->login()
             ->registration(RegisterProvider::class)
             ->passwordReset()
+            // "My account" in the user menu: the signed-in person's own name, email and password.
+            ->profile(isSimple: false)
             ->tenant(Provider::class, slugAttribute: 'slug', ownershipRelationship: 'provider')
             ->tenantProfile(EditProviderProfile::class)
             ->tenantSwitcher()
@@ -81,6 +84,15 @@ class ProviderPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Provider/Widgets'), for: 'App\Filament\Provider\Widgets')
             ->widgets([])
             ->navigationItems([
+                // The store's activities and games, straight from the menu (a tab of the store page).
+                NavigationItem::make('activities')
+                    ->label(fn () => __('provider.nav.activities'))
+                    ->icon('heroicon-o-puzzle-piece')
+                    ->group(ProviderNavGroup::Venues)
+                    ->sort(2)
+                    ->url(fn () => VenueResource::activitiesUrl() ?? '#')
+                    ->isActiveWhen(fn () => request()->routeIs('filament.provider.resources.venues.view') && request()->query('relation') === '0')
+                    ->visible(fn () => VenueResource::activitiesUrl() !== null && ProviderAccess::canView('venues')),
                 NavigationItem::make('profile')
                     ->label(fn () => __('provider.profile.title'))
                     ->icon('heroicon-o-identification')

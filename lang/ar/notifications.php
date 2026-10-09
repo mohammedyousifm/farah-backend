@@ -14,6 +14,8 @@ return [
     'document_expiring' => ['title' => 'مستند قارب على الانتهاء', 'body' => 'ينتهي مستند :type بتاريخ :date. يرجى رفع نسخة محدثة.'],
     'venue_approved' => ['title' => 'تم نشر المكان', 'body' => 'تمت الموافقة على :venue وأصبح متاحاً للحجز.'],
     'venue_rejected' => ['title' => 'لم تتم الموافقة على المكان', 'body' => ':venue. السبب: :reason'],
+    'activity_approved' => ['title' => 'تمت الموافقة على النشاط', 'body' => 'تمت الموافقة على :activity وأصبح متاحاً للحجز.'],
+    'activity_rejected' => ['title' => 'لم تتم الموافقة على النشاط', 'body' => ':activity. السبب: :reason'],
     'venue_suspended' => ['title' => 'تم إيقاف المكان', 'body' => 'تم إيقاف :venue. السبب: :reason'],
     'settlement_paid' => ['title' => 'تم صرف التسوية', 'body' => 'تم تحويل :amount ر.س للتسوية :number.'],
     'sector_request_approved' => ['title' => 'تم قبول طلب نوع النشاط', 'body' => 'تمت إضافة :name إلى حسابك.'],

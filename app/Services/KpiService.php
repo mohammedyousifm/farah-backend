@@ -10,6 +10,7 @@ use App\Enums\RequestStatus;
 use App\Enums\SettlementStatus;
 use App\Enums\UserType;
 use App\Enums\VenueStatus;
+use App\Models\Activity;
 use App\Models\Booking;
 use App\Models\Complaint;
 use App\Models\Dispute;
@@ -90,6 +91,7 @@ class KpiService
             'providers' => Provider::where('status', ProviderStatus::Pending)->count(),
             'documents' => ProviderDocument::where('status', DocumentStatus::Pending)->count(),
             'venues' => Venue::where('status', VenueStatus::PendingReview)->count(),
+            'activities' => Activity::where('review_status', Activity::PENDING)->count(),
             'sector_requests' => SectorRequest::where('status', RequestStatus::Pending)->count(),
             'refunds' => Refund::where('status', RefundStatus::Requested)->count(),
             'disputes' => Dispute::whereIn('status', ['open', 'under_review'])->count(),

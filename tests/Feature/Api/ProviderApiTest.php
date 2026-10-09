@@ -2,15 +2,18 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\UserType;
 use App\Enums\VenueStatus;
 use App\Models\Booking;
 use App\Models\BookingSlot;
 use App\Models\LedgerEntry;
 use App\Models\Order;
+use App\Models\Provider;
 use App\Models\Sector;
 use App\Models\User;
 use App\Models\Venue;
 use App\Services\OrderService;
+use App\Services\ProviderService;
 use App\Services\VenueService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
@@ -46,11 +49,24 @@ class ProviderApiTest extends ApiTestCase
             'file' => UploadedFile::fake()->create('cr.pdf', 100, 'application/pdf'),
         ], ['Accept' => 'application/json'])->assertCreated()->assertJsonPath('data.status.value', 'pending');
 
-        // A provider that is not approved yet can prepare a venue but not submit it.
+        // One request: before approval the provider prepares the store and its activities (in the activity
+        // types it asked for) and submits it; approving the provider publishes the store.
         $venueId = $this->postJson('/api/v1/provider/venues', ['city_id' => $this->city->id, 'name_ar' => 'صالة جديدة'])->assertCreated()->json('data.id');
-        $this->postJson("/api/v1/provider/venues/{$venueId}/activities", ['sector_id' => $this->sector->id, 'name_ar' => 'بلياردو', 'price_per_hour' => 80])
-            ->assertForbidden()->assertJsonPath('code', 'sector_not_allowed'); // sector still pending
-        $this->postJson("/api/v1/provider/venues/{$venueId}/submit")->assertStatus(422)->assertJsonPath('code', 'provider_not_approved');
+        $other = Sector::where('slug', 'bowling')->firstOrFail();
+        $this->postJson("/api/v1/provider/venues/{$venueId}/activities", ['sector_id' => $other->id, 'name_ar' => 'بولينج', 'price_per_hour' => 80])
+            ->assertForbidden()->assertJsonPath('code', 'sector_not_allowed'); // not an activity type it asked for
+        $this->postJson("/api/v1/provider/venues/{$venueId}/activities", ['sector_id' => $this->sector->id, 'name_ar' => 'بلياردو', 'price_per_hour' => 80, 'resources_count' => 2])
+            ->assertCreated()->assertJsonPath('data.review_status', 'approved');
+        $this->postJson("/api/v1/provider/venues/{$venueId}/submit")->assertOk();
+        $this->assertSame(VenueStatus::PendingReview, Venue::find($venueId)->status);
+        $this->getJson("/api/v1/venues/{$venueId}")->assertNotFound(); // not visible to customers yet
+
+        $provider = Provider::where('name_en', 'Farah Co')->firstOrFail();
+        $provider->documents()->update(['status' => 'approved']);
+        $admin = User::create(['name' => 'Admin', 'email' => 'admin@farah.sa', 'password' => 'password', 'type' => UserType::Admin, 'status' => 'active']);
+        app(ProviderService::class)->approve($provider, $admin);
+        $this->assertSame(VenueStatus::Published, Venue::find($venueId)->status);
+        $this->getJson("/api/v1/venues/{$venueId}")->assertOk();
     }
 
     public function test_venue_management_and_submission(): void
@@ -82,6 +98,10 @@ class ProviderApiTest extends ApiTestCase
         $base = "/api/v1/provider/venues/{$venueId}";
 
         $this->postJson('/api/v1/provider/venues', ['name_en' => 'No Arabic name'])->assertStatus(422)->assertJsonValidationErrors(['name_ar', 'city_id']);
+
+        // One venue per provider: a second one is refused.
+        $this->postJson('/api/v1/provider/venues', ['city_id' => $this->city->id, 'name_ar' => 'فرع ثانٍ'])->assertStatus(422)->assertJsonPath('code', 'venue_limit');
+        $this->assertSame(1, $provider->venues()->count());
 
         // Cannot go to review without something to book.
         $this->postJson("{$base}/submit")->assertStatus(422)->assertJsonPath('code', 'no_activities');

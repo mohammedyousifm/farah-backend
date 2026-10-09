@@ -45,6 +45,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            // "My account" in the user menu: the signed-in admin's own name, email and password.
+            ->profile(isSimple: false)
             // SPA navigation: pages swap in place (wire:navigate) instead of full reloads.
             ->spa()
             // The language switch changes <html dir/lang>, so it needs a full page load.

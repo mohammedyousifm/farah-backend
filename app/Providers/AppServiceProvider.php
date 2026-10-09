@@ -26,9 +26,7 @@ use App\Services\Integrations\Contracts\AccountingClient;
 use App\Services\Integrations\Contracts\PaymentGateway;
 use App\Services\Integrations\Contracts\PushSender;
 use App\Services\Integrations\Contracts\SmsSender;
-use App\Services\Integrations\Contracts\WathqClient;
 use App\Services\Integrations\Drivers\FakePaymentGateway;
-use App\Services\Integrations\Drivers\FakeWathqClient;
 use App\Services\Integrations\Drivers\LogPushSender;
 use App\Services\Integrations\Drivers\LogSmsSender;
 use App\Services\Integrations\Drivers\NullAccountingClient;
@@ -50,7 +48,6 @@ class AppServiceProvider extends ServiceProvider
     private const DRIVERS = [
         PaymentGateway::class => ['payment', ['fake' => FakePaymentGateway::class]],
         SmsSender::class => ['sms', ['log' => LogSmsSender::class]],
-        WathqClient::class => ['wathq', ['fake' => FakeWathqClient::class]],
         AccountingClient::class => ['accounting', ['null' => NullAccountingClient::class]],
         PushSender::class => ['push', ['log' => LogPushSender::class]],
     ];

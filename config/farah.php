@@ -71,7 +71,6 @@ return [
             'webhook_secret' => env('PAYMENT_WEBHOOK_SECRET'),
         ],
         'sms' => ['driver' => env('SMS_DRIVER', 'log'), 'sender' => env('SMS_SENDER', 'FARAH')],
-        'wathq' => ['driver' => env('WATHQ_DRIVER', 'fake'), 'api_key' => env('WATHQ_API_KEY')],
         'accounting' => ['driver' => env('ACCOUNTING_DRIVER', 'null')],
         'push' => ['driver' => env('PUSH_DRIVER', 'log')],
     ],

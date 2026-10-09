@@ -14,9 +14,22 @@ class Activity extends Model
 
     protected $guarded = ['id'];
 
+    /** Review of an activity added to a live store. Only an approved activity can be active (bookable). */
+    public const APPROVED = 'approved';
+
+    public const PENDING = 'pending';
+
+    public const REJECTED = 'rejected';
+
+    public function isApproved(): bool
+    {
+        return ($this->review_status ?? self::APPROVED) === self::APPROVED;
+    }
+
     protected function casts(): array
     {
         return [
+            'reviewed_at' => 'datetime',
             'price_per_hour' => 'float',
             'slot_minutes' => 'integer',
             'min_slots' => 'integer',

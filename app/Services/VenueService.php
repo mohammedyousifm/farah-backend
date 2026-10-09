@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\VenueStatus;
 use App\Exceptions\BusinessException;
+use App\Models\Activity;
 use App\Models\Provider;
 use App\Models\User;
 use App\Models\Venue;
@@ -14,8 +15,13 @@ use Illuminate\Support\Str;
 /** Venue lifecycle: draft → pending_review → published / rejected → suspended. */
 class VenueService
 {
+    /** A provider runs one venue and offers any number of activities inside it. */
     public function create(Provider $provider, array $data, ?array $hours = null): Venue
     {
+        if ($provider->venues()->exists()) {
+            throw new BusinessException(__('api.venues.one_venue_only'), 'venue_limit');
+        }
+
         return DB::transaction(function () use ($provider, $data, $hours) {
             $venue = $provider->venues()->create(array_merge($data, [
                 'slug' => $this->slug($data['name_en'] ?? $data['name_ar']),
@@ -77,9 +83,8 @@ class VenueService
         if (! in_array($venue->status, [VenueStatus::Draft, VenueStatus::Rejected], true)) {
             throw new BusinessException(__('api.venues.cannot_submit'), 'wrong_status');
         }
-        if (! $venue->provider->isApproved()) {
-            throw new BusinessException(__('api.venues.provider_not_approved'), 'provider_not_approved');
-        }
+        // A provider that is not approved yet may submit too: its store is published when the provider
+        // itself is approved (ProviderService::approve), so the owner sends a single request.
         if (! $venue->activities()->where('is_active', true)->whereHas('resources', fn ($q) => $q->where('is_active', true))->exists()) {
             throw new BusinessException(__('api.venues.no_activities'), 'no_activities');
         }
@@ -118,10 +123,50 @@ class VenueService
         SystemNotification::send($venue->provider->owner, 'venue_suspended', ['venue' => $venue->name_ar, 'reason' => $reason], ['venue_id' => $venue->id]);
     }
 
+    /**
+     * Review state for an activity the provider is adding now. Before the store is live the activity is
+     * reviewed together with the store; once the store is live each new activity waits for its own review
+     * and stays hidden from customers until then.
+     *
+     * @return array{review_status: string, is_active?: bool}
+     */
+    public function newActivityState(Venue $venue): array
+    {
+        return $venue->status === VenueStatus::Published
+            ? ['review_status' => Activity::PENDING, 'is_active' => false, 'review_note' => null, 'reviewed_at' => null]
+            : ['review_status' => Activity::APPROVED];
+    }
+
+    /** Provider edits: an activity that is not approved cannot be switched on, and editing a rejected one sends it back to review. */
+    public function activityUpdateState(Activity $activity, array $data): array
+    {
+        if ($activity->isApproved()) {
+            return $data;
+        }
+
+        return ['is_active' => false, 'review_status' => Activity::PENDING, 'review_note' => null] + $data;
+    }
+
+    public function approveActivity(Activity $activity, User $by): void
+    {
+        $activity->update(['review_status' => Activity::APPROVED, 'is_active' => true, 'review_note' => null, 'reviewed_at' => now()]);
+        SystemNotification::send($activity->venue->provider->owner, 'activity_approved', ['activity' => $activity->name_ar], ['venue_id' => $activity->venue_id, 'activity_id' => $activity->id]);
+    }
+
+    public function rejectActivity(Activity $activity, User $by, string $reason): void
+    {
+        $activity->update(['review_status' => Activity::REJECTED, 'is_active' => false, 'review_note' => $reason, 'reviewed_at' => now()]);
+        SystemNotification::send($activity->venue->provider->owner, 'activity_rejected', ['activity' => $activity->name_ar, 'reason' => $reason], ['venue_id' => $activity->venue_id, 'activity_id' => $activity->id]);
+    }
+
     /** A provider may only offer activities in sectors (activity types) it is approved for. */
     public function assertSectorAllowed(Provider $provider, int $sectorId): void
     {
-        if (! $provider->approvedSectors()->where('sectors.id', $sectorId)->exists()) {
+        // Before approval the provider prepares its store with the activity types it asked for at
+        // registration; they are approved together with the provider.
+        $allowed = $provider->isApproved() ? $provider->approvedSectors() : $provider->sectors();
+
+        if (! $allowed->where('sectors.id', $sectorId)->exists()) {
             throw new BusinessException(__('api.venues.sector_not_allowed'), 'sector_not_allowed', 403);
         }
     }

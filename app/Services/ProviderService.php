@@ -15,16 +15,12 @@ use App\Models\SectorRequest;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\SystemNotification;
-use App\Services\Integrations\Contracts\WathqClient;
-use App\Services\Integrations\IntegrationLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /** Provider onboarding, verification and approval workflow (FR-PRO, FR-ADM). */
 class ProviderService
 {
-    public function __construct(private WathqClient $wathq) {}
-
     public function register(User $owner, array $data): Provider
     {
         if ($owner->ownedProvider()->exists()) {
@@ -52,25 +48,6 @@ class ProviderService
         });
     }
 
-    /** Look up the commercial register with Wathq and store the result. */
-    public function verifyWithWathq(Provider $provider): array
-    {
-        if (! $provider->cr_number) {
-            throw new BusinessException(__('admin.providers.no_cr'), 'no_cr');
-        }
-
-        $result = IntegrationLogger::call('wathq', 'commercial_register', ['cr' => $provider->cr_number],
-            fn () => $this->wathq->commercialRegister($provider->cr_number));
-
-        $provider->update([
-            'wathq_payload' => $result,
-            'wathq_verified_at' => $result && $result['status'] === 'active' ? now() : null,
-            'legal_name' => $result['name'] ?? $provider->legal_name,
-        ]);
-
-        return ['found' => (bool) $result, 'active' => ($result['status'] ?? null) === 'active', 'data' => $result];
-    }
-
     public function approve(Provider $provider, User $by, array $sectorIds = []): void
     {
         $missing = $provider->documents()->where('status', DocumentStatus::Pending)->count();
@@ -93,6 +70,11 @@ class ProviderService
         });
 
         SystemNotification::send($provider->owner, 'provider_approved', ['name' => $provider->name_ar]);
+
+        // One request, one decision: a store the provider already sent for review goes live with the approval.
+        foreach ($provider->venues()->where('status', VenueStatus::PendingReview)->get() as $venue) {
+            app(VenueService::class)->approve($venue, $by);
+        }
     }
 
     public function reject(Provider $provider, User $by, string $reason): void

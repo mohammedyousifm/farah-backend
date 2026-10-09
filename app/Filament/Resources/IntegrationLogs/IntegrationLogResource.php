@@ -23,7 +23,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-/** Read-only log of calls to external services (payment, SMS, Wathq, accounting, push). */
+/** Read-only log of calls to external services (payment, SMS, accounting, push). */
 class IntegrationLogResource extends Resource
 {
     use ModuleResource;
@@ -48,7 +48,7 @@ class IntegrationLogResource extends Resource
     /** @return array<string, string> */
     public static function services(): array
     {
-        return collect(['payment', 'sms', 'wathq', 'accounting', 'push', 'maps'])
+        return collect(['payment', 'sms', 'accounting', 'push', 'maps'])
             ->mapWithKeys(fn ($s) => [$s => __("admin.services.{$s}")])->all();
     }
 

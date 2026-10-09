@@ -40,6 +40,8 @@ class ActivityResource extends JsonResource
             'max_slots' => $this->max_slots,
             'capacity' => $this->capacity,
             'is_active' => (bool) $this->is_active,
+            'review_status' => $this->review_status ?? 'approved', // approved | pending | rejected
+            'review_note' => $this->when($isProvider, $this->review_note),
             'sort_order' => $this->sort_order,
             'resources_count' => $this->whenLoaded('resources', fn () => $this->resources->where('is_active', true)->count()),
             'resources' => ResourceResource::collection($resources),

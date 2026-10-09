@@ -100,6 +100,9 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $this->assertArrayHasKey('orders.view', $urls);
 
         $this->actingAs($this->owner, 'provider');
+        // One venue per provider: with a venue already there, "create" is closed.
+        $this->assertStatuses(['venues.create' => $urls['venues.create']], 403);
+        unset($urls['venues.create']);
         $this->assertStatuses($urls, 200);
 
         $this->withSession(['admin_locale' => 'en']);
@@ -162,8 +165,8 @@ class ProviderPanelTest extends ProviderPanelTestCase
         // Venue manager: venues and the schedule, no orders.
         $this->flushSession();
         $this->actingAs($this->staff(['venues.manage'], 'venues@example.com'), 'provider');
-        $this->assertStatuses($only(['venues', 'venues.create', 'venues.edit', 'schedule']), 200);
-        $this->assertStatuses($only(['orders', 'bookings', 'check-in']), 403);
+        $this->assertStatuses($only(['venues', 'venues.edit', 'schedule']), 200);
+        $this->assertStatuses($only(['orders', 'bookings', 'check-in', 'venues.create']), 403); // create: the provider already has its venue
     }
 
     public function test_deactivated_member_loses_access(): void
@@ -225,8 +228,9 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $urls = $this->pageUrls($this->provider->fresh());
 
         $this->actingAs($this->owner, 'provider');
-        $this->assertStatuses(array_intersect_key($urls, array_flip(['dashboard', 'profile', 'documents', 'sectors', 'sector-requests', 'team'])), 200);
-        $this->assertStatuses(array_intersect_key($urls, array_flip(['venues', 'venues.create', 'venues.view', 'bookings', 'schedule', 'orders', 'check-in', 'ledger', 'settlements', 'reviews'])), 403);
+        // The store can be prepared before approval (one request); day-to-day pages open after it.
+        $this->assertStatuses(array_intersect_key($urls, array_flip(['dashboard', 'profile', 'documents', 'sectors', 'sector-requests', 'team', 'venues', 'venues.view'])), 200);
+        $this->assertStatuses(array_intersect_key($urls, array_flip(['venues.create', 'bookings', 'schedule', 'orders', 'check-in', 'ledger', 'settlements', 'reviews'])), 403);
         $this->get($urls['dashboard'])
             ->assertSee(__('provider.onboarding.title'))
             ->assertSee(__('provider.banner.pending.title'))

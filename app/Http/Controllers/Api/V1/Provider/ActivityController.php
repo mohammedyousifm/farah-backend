@@ -45,8 +45,11 @@ class ActivityController extends ProviderController
         $venues->assertSectorAllowed($this->provider($request), (int) $data['sector_id']);
         $this->assertConsistent($data);
 
-        $activity = DB::transaction(function () use ($model, $data, $request) {
-            $activity = $model->activities()->create($data + ['sort_order' => (int) $model->activities()->max('sort_order') + 1]);
+        // In a live store a new activity waits for the platform's review before customers see it.
+        $state = $venues->newActivityState($model);
+
+        $activity = DB::transaction(function () use ($model, $data, $request, $state) {
+            $activity = $model->activities()->create($state + $data + ['sort_order' => (int) $model->activities()->max('sort_order') + 1]);
 
             for ($i = 1; $i <= $request->integer('resources_count'); $i++) {
                 $activity->resources()->create(['name_ar' => (string) $i, 'name_en' => (string) $i, 'sort_order' => $i]);
@@ -75,7 +78,7 @@ class ActivityController extends ProviderController
             throw new BusinessException(__('api.activities.slot_locked'), 'activity_has_bookings');
         }
 
-        $model->update($data);
+        $model->update($venues->activityUpdateState($model, $data));
 
         return new ActivityResource($model->fresh()->load(self::RELATIONS));
     }

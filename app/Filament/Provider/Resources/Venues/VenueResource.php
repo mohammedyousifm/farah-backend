@@ -48,13 +48,16 @@ use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /** The provider's own venues. Every state change goes through VenueService. */
 class VenueResource extends Resource
 {
-    use ProviderResource;
+    use ProviderResource {
+        getAuthorizationResponse as protected providerAuthorizationResponse;
+    }
 
     protected static ?string $model = Venue::class;
 
@@ -101,6 +104,34 @@ class VenueResource extends Resource
     public const REFUND_POLICIES = ['none', 'flexible', 'moderate', 'strict'];
 
     public const LOCKED = [VenueStatus::Suspended];
+
+    /** One venue per provider (VenueService::create enforces it too): no "add" once it exists. */
+    public static function getAuthorizationResponse(string|\UnitEnum $action, ?Model $record = null): Response
+    {
+        $name = $action instanceof \UnitEnum ? $action->name : $action;
+
+        if ($name === 'create' && ProviderAccess::provider()?->venues()->exists()) {
+            return Response::deny();
+        }
+
+        return static::providerAuthorizationResponse($action, $record);
+    }
+
+    /** "My venue" opens the provider's venue directly; the list is for a provider with none yet (or, on older accounts, several). */
+    public static function getNavigationUrl(): string
+    {
+        $ids = ProviderAccess::provider()?->venues()->limit(2)->pluck('id') ?? collect();
+
+        return $ids->count() === 1 ? static::getUrl('view', ['record' => $ids->first()]) : static::getUrl();
+    }
+
+    /** The activities tab of the provider's store, or null when there is no single store to point at. */
+    public static function activitiesUrl(): ?string
+    {
+        $ids = ProviderAccess::provider()?->venues()->limit(2)->pluck('id') ?? collect();
+
+        return $ids->count() === 1 ? static::getUrl('view', ['record' => $ids->first(), 'relation' => '0']) : null;
+    }
 
     public static function canEdit(Model $record): bool
     {

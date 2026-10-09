@@ -3,6 +3,7 @@
 namespace Tests\Feature\Provider;
 
 use App\Enums\VenueStatus;
+use App\Exceptions\BusinessException;
 use App\Filament\Provider\Pages\Dashboard;
 use App\Filament\Provider\Resources\Venues\Pages\CreateVenue;
 use App\Filament\Provider\Resources\Venues\Pages\EditVenue;
@@ -34,8 +35,33 @@ class VenueManagementTest extends ProviderPanelTestCase
         return $rows;
     }
 
+    public function test_a_provider_has_one_venue(): void
+    {
+        $this->asOwner();
+
+        // With a venue: no "add", the create page is closed, and the menu opens the venue itself.
+        $this->assertFalse(VenueResource::canCreate());
+        $this->get(VenueResource::getUrl('create', tenant: $this->provider))->assertForbidden();
+        Livewire::test(ListVenues::class)->assertActionHidden('create');
+        $this->assertSame(VenueResource::getUrl('view', ['record' => $this->venue]), VenueResource::getNavigationUrl());
+
+        try {
+            app(VenueService::class)->create($this->provider, ['name_ar' => 'فرع ثانٍ', 'city_id' => $this->city->id]);
+            $this->fail('A second venue was created.');
+        } catch (BusinessException $e) {
+            $this->assertSame(__('api.venues.one_venue_only'), $e->getMessage());
+        }
+        $this->assertSame(1, $this->provider->venues()->count());
+
+        // Without one: the list with "add".
+        $this->venue->forceDelete();
+        $this->assertTrue(VenueResource::canCreate());
+        $this->assertSame(VenueResource::getUrl(), VenueResource::getNavigationUrl());
+    }
+
     public function test_create_page_is_a_wizard_with_the_form_sections(): void
     {
+        $this->venue->forceDelete(); // a provider adds a venue only when it has none
         $this->asOwner();
 
         $this->assertSame(['details', 'location', 'hours', 'booking_rules'], array_keys(VenueResource::formSections()));
@@ -57,6 +83,7 @@ class VenueManagementTest extends ProviderPanelTestCase
 
     public function test_venue_is_created_with_hours_then_activities_resources_and_submitted(): void
     {
+        $this->venue->forceDelete(); // a provider adds a venue only when it has none
         $this->asOwner();
 
         Livewire::test(CreateVenue::class)

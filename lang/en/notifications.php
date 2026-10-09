@@ -14,6 +14,8 @@ return [
     'document_expiring' => ['title' => 'Document expiring soon', 'body' => 'Your :type expires on :date. Please upload a renewed copy.'],
     'venue_approved' => ['title' => 'Venue published', 'body' => ':venue was approved and is now open for bookings.'],
     'venue_rejected' => ['title' => 'Venue not approved', 'body' => ':venue. Reason: :reason'],
+    'activity_approved' => ['title' => 'Activity approved', 'body' => ':activity was approved and is now open for bookings.'],
+    'activity_rejected' => ['title' => 'Activity not approved', 'body' => ':activity. Reason: :reason'],
     'venue_suspended' => ['title' => 'Venue suspended', 'body' => ':venue was suspended. Reason: :reason'],
     'settlement_paid' => ['title' => 'Settlement paid', 'body' => 'SAR :amount was transferred for settlement :number.'],
     'sector_request_approved' => ['title' => 'Activity type request approved', 'body' => ':name was added to your account.'],

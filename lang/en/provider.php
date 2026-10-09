@@ -8,14 +8,15 @@ return [
     'saved' => 'Saved',
 
     'nav' => [
-        'venues' => 'Venues',
+        'venues' => 'My store',
+        'activities' => 'Activities & games',
         'bookings' => 'Bookings',
         'finance' => 'Finance',
         'account' => 'Business',
     ],
 
     'resources' => [
-        'venues' => ['singular' => 'Venue', 'plural' => 'My venues'],
+        'venues' => ['singular' => 'Store', 'plural' => 'Store details'],
         'bookings' => ['singular' => 'Booking', 'plural' => 'Bookings'],
         'orders' => ['singular' => 'Order', 'plural' => 'Orders'],
         'documents' => ['singular' => 'Document', 'plural' => 'Documents'],
@@ -43,7 +44,7 @@ return [
     'banner' => [
         'pending' => [
             'title' => 'Your account is under review',
-            'body' => 'Complete your profile and upload the required documents. Once approved you can add your venues and take bookings.',
+            'body' => 'Complete your profile and upload your register and documents, then add your store details and its activities and send it for review. Once approved, customers can see your store and book.',
         ],
         'rejected' => [
             'title' => 'Your registration was rejected',
@@ -51,7 +52,7 @@ return [
         ],
         'suspended' => [
             'title' => 'Account suspended',
-            'body' => 'Your account is read-only and your venues are hidden from customers. Contact support to reactivate it.',
+            'body' => 'Your account is read-only and your store is hidden from customers. Contact support to reactivate it.',
         ],
     ],
 
@@ -80,7 +81,7 @@ return [
         'venue_title' => 'Get your venue ready for bookings',
         'venue_description' => 'Four steps until customers can find your venue in the app and book it by the hour.',
         'venue_ready' => 'Your venue is submitted. Customers will see it as soon as the Farah team approves it.',
-        'step_venue' => 'Add your venue (name, location, photos)',
+        'step_venue' => 'Add your store details (name, location, photos)',
         'venue_todo' => 'No venue added yet.',
         'step_hours' => 'Set the working hours',
         'hours_count' => '{1} 1 working day a week|[2,*] :count working days a week',
@@ -182,15 +183,15 @@ return [
     ],
 
     'venues' => [
-        'empty' => 'No venues yet',
-        'empty_hint' => 'Add your venue, set its working hours, add activities and tables, then submit it for review so customers can book it in the app.',
+        'empty' => 'You have not added your store details yet',
+        'empty_hint' => 'Add your store details and working hours, then the activities and games it offers and their tables, then submit it for review so customers can book it in the app.',
         'steps' => [
             'details' => 'Name, description and cover',
             'location' => 'City, address and contact number',
             'hours' => 'Days and hours you take bookings',
             'booking_rules' => 'Audience, refund policy and how far ahead to book',
         ],
-        'create' => 'New venue',
+        'create' => 'Add store details',
         'created' => 'Venue saved as a draft. Add activities and tables, then submit it for review.',
         'submit' => 'Submit for review',
         'submit_hint' => 'The Farah team reviews the venue before it is published to customers.',
@@ -213,6 +214,9 @@ return [
         'no_activities' => 'No activities yet',
         'no_activities_hint' => 'Add what can be played at your venue (billiards, bowling...) with its hourly price.',
         'add_activity' => 'Add activity',
+        'review' => ['approved' => 'Approved', 'pending' => 'Awaiting review', 'rejected' => 'Rejected'],
+        'activity_review_hint' => 'Your store is live, so the Farah team reviews each new activity before customers can see it. You will be notified of the result.',
+        'activity_sent_for_review' => 'The activity was sent for review. Customers will see it once it is approved.',
         'activity_has_bookings' => 'An activity with bookings cannot be deleted. Deactivate it instead.',
         'no_resources' => 'No tables / resources yet',
         'no_resources_hint' => 'Each table, lane or room is booked on its own. Add as many as you have for every activity.',
@@ -266,8 +270,8 @@ return [
         'unblock' => 'Open the slot again',
         'unblock_hint' => 'The slot becomes available for booking again.',
         'unblocked_done' => 'Slot is available again',
-        'no_venues' => 'No venues yet',
-        'no_venues_hint' => 'Add your venue first to see its booking schedule here.',
+        'no_venues' => 'You have not added your store details yet',
+        'no_venues_hint' => 'Add your store details first to see its booking schedule here.',
         'no_activities' => 'This venue has no activities',
         'no_activities_hint' => 'Add an activity and its tables on the venue page to see the schedule.',
         'closed_day' => 'The venue is closed on this day',
@@ -436,6 +440,7 @@ return [
         'gross_amount' => 'Gross sales',
         'iban' => 'IBAN',
         'is_active' => 'Active',
+        'review_status' => 'Review',
         'is_closed' => 'Closed this day',
         'issued_at' => 'Issued at',
         'lat' => 'Latitude',

@@ -12,7 +12,8 @@ class UpdateProfileRequest extends ApiRequest
         $id = $this->user()->id;
 
         return [
-            'name' => ['sometimes', 'required', 'string', 'max:120'],
+            // First name and family name: at least two words of two characters or more.
+            'name' => ['sometimes', 'required', 'string', 'max:120', 'regex:/^\s*\S{2,}(\s+\S{2,})+\s*$/u'],
             'email' => ['sometimes', 'nullable', 'email', 'max:120', Rule::unique('users', 'email')->ignore($id)],
             'city_id' => ['sometimes', 'nullable', 'exists:cities,id'],
             'birth_date' => ['sometimes', 'nullable', 'date', 'before:today'],

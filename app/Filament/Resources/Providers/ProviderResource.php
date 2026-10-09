@@ -31,7 +31,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
-use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -188,11 +187,6 @@ class ProviderResource extends Resource
                     TextEntry::make('cr_number')->label(__('admin.fields.cr_number'))->placeholder('-')->copyable(),
                     TextEntry::make('legal_name')->label(__('admin.fields.legal_name'))->placeholder('-'),
                     TextEntry::make('vat_number')->label(__('admin.fields.vat_number'))->placeholder('-'),
-                    TextEntry::make('wathq_verified_at')->label(__('admin.fields.wathq_verified_at'))->dateTime()
-                        ->placeholder(__('admin.providers.not_verified'))->color(fn ($state) => $state ? 'success' : 'warning'),
-                    KeyValueEntry::make('wathq_payload')->label(__('admin.fields.wathq_result'))->columnSpanFull()
-                        ->state(fn (Provider $r) => collect($r->wathq_payload ?? [])->mapWithKeys(fn ($v, $k) => [Fmt::label('wathq_keys', $k) => is_array($v) ? implode('، ', $v) : (is_bool($v) ? ($v ? __('admin.yes') : __('admin.no')) : (string) $v)])->all())
-                        ->visible(fn (Provider $r) => filled($r->wathq_payload)),
                 ]),
                 Tab::make(__('admin.tabs.bank'))->icon('heroicon-o-building-library')->columns(3)->schema([
                     TextEntry::make('bank_name')->label(__('admin.fields.bank_name'))->placeholder('-'),
@@ -234,7 +228,6 @@ class ProviderResource extends Resource
                 TextColumn::make('city.name_ar')->formatStateUsing(Fmt::localized('city.name'))->label(__('admin.fields.city'))->placeholder('-')->toggleable(),
                 TextColumn::make('venues_count')->label(__('admin.resources.venues.plural'))->badge()->color('gray'),
                 TextColumn::make('rating_avg')->label(__('admin.fields.rating'))->formatStateUsing(fn ($state) => number_format((float) $state, 1).' ★')->sortable(),
-                TextColumn::make('wathq_verified_at')->label(__('admin.fields.wathq'))->since()->placeholder('-')->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')->label(__('admin.fields.created_at'))->date()->sortable(),
             ])
             ->filters([

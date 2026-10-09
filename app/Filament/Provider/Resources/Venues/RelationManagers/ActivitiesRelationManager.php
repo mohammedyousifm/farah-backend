@@ -2,6 +2,7 @@
 
 namespace App\Filament\Provider\Resources\Venues\RelationManagers;
 
+use App\Enums\VenueStatus;
 use App\Exceptions\BusinessException;
 use App\Filament\Provider\Concerns\ProviderRelationManager;
 use App\Filament\Provider\Resources\Venues\VenueResource;
@@ -19,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -60,7 +62,9 @@ class ActivitiesRelationManager extends RelationManager
 
         return $schema->columns(2)->components([
             Select::make('sector_id')->label(__('provider.fields.activity_type'))->required()->live()
-                ->options(fn () => $provider?->approvedSectors()->orderBy('sort_order')->pluck('sectors.'.Fmt::col('name'), 'sectors.id') ?? [])
+                // Before approval: the activity types asked for at registration (see VenueService::assertSectorAllowed).
+                ->options(fn () => ($provider?->isApproved() ? $provider->approvedSectors() : $provider?->sectors())
+                    ?->orderBy('sort_order')->pluck('sectors.'.Fmt::col('name'), 'sectors.id') ?? [])
                 ->afterStateUpdated(fn (Set $set) => $set('category_id', null))
                 ->helperText(__('provider.venues.sector_hint')),
             Select::make('category_id')->label(__('provider.fields.category'))->searchable()
@@ -80,7 +84,11 @@ class ActivitiesRelationManager extends RelationManager
                 ->gte('min_slots')->helperText(__('provider.venues.slots_hint')),
             TextInput::make('capacity')->label(__('provider.fields.capacity'))->integer()->minValue(1)->maxValue(1000)
                 ->helperText(__('provider.venues.capacity_hint')),
-            Toggle::make('is_active')->label(__('provider.fields.is_active'))->default(true)->inline(false),
+            // Only an approved activity can be switched on; a new one in a live store waits for review first.
+            Toggle::make('is_active')->label(__('provider.fields.is_active'))->default(true)->inline(false)
+                ->visible(fn (?Activity $record) => $record ? $record->isApproved() : $this->getOwnerRecord()->status !== VenueStatus::Published),
+            Text::make(__('provider.venues.activity_review_hint'))->columnSpanFull()->color('warning')
+                ->visible(fn (?Activity $record) => $record ? ! $record->isApproved() : $this->getOwnerRecord()->status === VenueStatus::Published),
         ]);
     }
 
@@ -104,16 +112,29 @@ class ActivitiesRelationManager extends RelationManager
                     ->state(fn (Activity $r) => $r->min_slots.' - '.$r->max_slots),
                 TextColumn::make('resources_count')->label(__('provider.fields.resources'))->numeric()
                     ->color(fn ($state) => $state ? null : 'danger'),
+                TextColumn::make('review_status')->label(__('provider.fields.review_status'))->badge()
+                    ->formatStateUsing(fn ($state) => __('provider.venues.review.'.($state ?: Activity::APPROVED)))
+                    ->color(fn ($state) => match ($state) {
+                        Activity::PENDING => 'warning', Activity::REJECTED => 'danger', default => 'success'
+                    })
+                    ->description(fn (Activity $r) => $r->review_status === Activity::REJECTED ? $r->review_note : null),
                 IconColumn::make('is_active')->label(__('provider.fields.is_active'))->boolean(),
             ])
             ->headerActions([
                 CreateAction::make()->label(__('provider.venues.add_activity'))
                     ->using(function (array $data) {
                         $this->assertSector((int) $data['sector_id']);
+                        $venue = $this->getOwnerRecord();
+                        $state = app(VenueService::class)->newActivityState($venue);
 
-                        return $this->getOwnerRecord()->activities()->create($data + [
-                            'sort_order' => (int) $this->getOwnerRecord()->activities()->max('sort_order') + 1,
+                        $activity = $venue->activities()->create($state + $data + [
+                            'sort_order' => (int) $venue->activities()->max('sort_order') + 1,
                         ]);
+                        if ($activity->review_status === Activity::PENDING) {
+                            Notification::make()->warning()->title(__('provider.venues.activity_sent_for_review'))->send();
+                        }
+
+                        return $activity;
                     }),
             ])
             ->recordActions([
@@ -127,7 +148,7 @@ class ActivitiesRelationManager extends RelationManager
                     }),
                 EditAction::make()->using(function (Activity $record, array $data) {
                     $this->assertSector((int) $data['sector_id']);
-                    $record->update($data);
+                    $record->update(app(VenueService::class)->activityUpdateState($record, $data));
 
                     return $record;
                 }),

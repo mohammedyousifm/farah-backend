@@ -33,6 +33,7 @@ class WorkQueueWidget extends StatsOverviewWidget
             'providers' => ['admin/providers?tableFilters[status][value]=pending', 'heroicon-o-building-storefront'],
             'documents' => ['admin/provider-documents', 'heroicon-o-document-check'],
             'venues' => ['admin/venues?tableFilters[status][value]=pending_review', 'heroicon-o-map-pin'],
+            'activities' => ['admin/venues?tableFilters[pending_activities][isActive]=1', 'heroicon-o-puzzle-piece'],
             'sector_requests' => ['admin/sector-requests', 'heroicon-o-squares-plus'],
             'refunds' => ['admin/refunds', 'heroicon-o-arrow-uturn-left'],
             'disputes' => ['admin/disputes', 'heroicon-o-scale'],

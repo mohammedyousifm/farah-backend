@@ -51,7 +51,6 @@ class ProviderProfileResource extends JsonResource
                 'rejection_reason' => $this->rejection_reason,
                 'submitted_at' => $this->submitted_at?->toIso8601String(),
                 'approved_at' => $this->approved_at?->toIso8601String(),
-                'wathq_verified' => (bool) $this->wathq_verified_at,
             ]),
 
             // Identity and bank details: owner / managers / members with profile or finance access only.

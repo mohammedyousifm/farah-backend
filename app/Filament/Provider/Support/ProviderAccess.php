@@ -17,8 +17,11 @@ use Filament\Facades\Filament;
  */
 class ProviderAccess
 {
-    /** Areas a provider can use before approval. */
-    public const ONBOARDING_AREAS = ['dashboard', 'profile', 'documents', 'sectors', 'team'];
+    /**
+     * Areas a provider can use before approval. The store ("venues") is one of them: a new provider enters
+     * the store's details and activities first, then sends one request for the platform to review.
+     */
+    public const ONBOARDING_AREAS = ['dashboard', 'profile', 'documents', 'sectors', 'team', 'venues'];
 
     public static function provider(): ?Provider
     {

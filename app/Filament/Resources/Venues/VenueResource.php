@@ -12,6 +12,7 @@ use App\Filament\Resources\Venues\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Resources\Venues\RelationManagers\BookingsRelationManager;
 use App\Filament\Resources\Venues\RelationManagers\OrdersRelationManager;
 use App\Filament\Support\Fmt;
+use App\Models\Activity;
 use App\Models\Sector;
 use App\Models\Venue;
 use App\Models\VenueHour;
@@ -31,6 +32,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -229,6 +231,8 @@ class VenueResource extends Resource
                 SelectFilter::make('provider_id')->label(__('admin.fields.provider'))->relationship('provider', 'name_ar')->getOptionLabelFromRecordUsing(fn ($record) => Fmt::tr($record, 'name'))->searchable(),
                 SelectFilter::make('city_id')->label(__('admin.fields.city'))->relationship('city', 'name_ar')->getOptionLabelFromRecordUsing(fn ($record) => Fmt::tr($record, 'name')),
                 TernaryFilter::make('is_featured')->label(__('admin.fields.is_featured')),
+                Filter::make('pending_activities')->label(__('admin.venues.pending_activities'))
+                    ->query(fn ($query) => $query->whereHas('activities', fn ($a) => $a->where('review_status', Activity::PENDING))),
                 TrashedFilter::make(),
             ])
             ->filtersFormColumns(2)

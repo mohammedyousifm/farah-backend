@@ -100,6 +100,7 @@ return [
     ],
     'venues' => [
         'cannot_submit' => 'The venue cannot be submitted in its current status.',
+        'one_venue_only' => 'Each provider has one venue. Add your new activities inside your current venue.',
         'provider_not_approved' => 'Your account must be approved before publishing venues.',
         'no_activities' => 'Add at least one active activity with a table / resource before submitting.',
         'no_hours' => 'Set the working hours of at least one day before submitting.',
