@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\Provider;
 use App\Http\Requests\Api\Provider\MediaReorderRequest;
 use App\Http\Requests\Api\Provider\VenueMediaRequest;
 use App\Http\Resources\VenueMediaResource;
+use App\Support\Thumb;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -68,6 +69,7 @@ class VenueMediaController extends ProviderController
 
         if ($item->path) {
             Storage::disk('public')->delete($item->path);
+            Thumb::forget($item->path);
         }
         $item->delete();
 

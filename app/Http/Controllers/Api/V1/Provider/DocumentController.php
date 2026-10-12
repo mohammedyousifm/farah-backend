@@ -6,6 +6,7 @@ use App\Enums\DocumentStatus;
 use App\Exceptions\BusinessException;
 use App\Http\Requests\Api\Provider\DocumentRequest;
 use App\Http\Resources\ProviderDocumentResource;
+use App\Models\ProviderDocument;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -30,12 +31,12 @@ class DocumentController extends ProviderController
             throw new BusinessException(__('api.providers.document_locked'), 'document_locked');
         }
 
-        $path = $request->file('file')->store("providers/{$provider->id}/documents", 'public');
+        $path = $request->file('file')->store("providers/{$provider->id}/documents", ProviderDocument::DISK);
 
         $document = DB::transaction(function () use ($provider, $request, $path, $old) {
             if ($old) {
                 if ($old->file_path) {
-                    Storage::disk('public')->delete($old->file_path);
+                    Storage::disk(ProviderDocument::DISK)->delete($old->file_path);
                 }
                 $old->delete();
             }

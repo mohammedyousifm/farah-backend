@@ -181,11 +181,14 @@ return [
     */
 
     'custom' => [
+        'maps_url' => [
+            'google' => 'Paste the link to your place from Google Maps (e.g. https://maps.app.goo.gl/...).',
+        ],
         'identifier' => [
             'regex' => 'Enter a valid Saudi mobile number (e.g. 05XXXXXXXX) or an email address.',
         ],
         'name' => [
-            'regex' => 'Enter your first name and family name (e.g. Mohammed Yousif).',
+            'regex' => 'Enter your first name and family name (e.g. Abdullah Alqahtani).',
         ],
     ],
 

@@ -269,10 +269,10 @@ class ProviderPanelTest extends ProviderPanelTestCase
                 'phone' => '0551234567',
                 'password' => 'secret-pass-123',
                 'passwordConfirmation' => 'secret-pass-123',
-                'type' => 'establishment',
                 'name_ar' => 'منشأة جديدة',
                 'name_en' => 'New Co',
                 'cr_number' => '1010101010',
+                'maps_url' => 'https://maps.app.goo.gl/AbCdEf123456',
                 'city_id' => City::first()->id,
                 'sector_ids' => [Sector::first()->id],
             ])
@@ -285,6 +285,8 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $this->assertSame('+966551234567', $user->phone);
         $this->assertTrue(Hash::check('secret-pass-123', $user->password));
         $this->assertSame(ProviderStatus::Pending, $provider->status);
+        $this->assertSame('establishment', $provider->type->value);
+        $this->assertSame('https://maps.app.goo.gl/AbCdEf123456', $provider->maps_url);
         $this->assertTrue($provider->members()->where('user_id', $user->id)->where('role', 'owner')->exists());
         $this->assertAuthenticatedAs($user, 'provider');
         $this->get(Dashboard::getUrl(tenant: $provider))->assertOk();
@@ -293,6 +295,7 @@ class ProviderPanelTest extends ProviderPanelTestCase
     public function test_profile_documents_sector_request_and_review_reply(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $this->provider->update(['iban' => 'SA0380000000608010167519']);
         $order = $this->booking();
         $review = Review::create([

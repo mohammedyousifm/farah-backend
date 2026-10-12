@@ -3,11 +3,17 @@
 namespace App\Http\Resources;
 
 use App\Models\Sector;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
-/** @mixin Sector */
+/**
+ * @mixin Sector
+ *
+ * @property-read int|null $venues_count only on the public list of activity types
+ * @property-read Pivot|null $pivot only when loaded through a provider
+ */
 class SectorResource extends JsonResource
 {
     public function toArray(Request $request): array

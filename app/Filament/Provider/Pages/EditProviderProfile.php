@@ -6,6 +6,7 @@ use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Fmt;
 use App\Models\City;
 use App\Models\Provider;
+use App\Rules\GoogleMapsLink;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -69,17 +70,16 @@ class EditProviderProfile extends EditTenantProfile
                 FileUpload::make('cover')->label(__('provider.fields.cover'))->image()->disk('public')->directory($dir)->maxSize(8192),
             ]),
             Section::make(__('provider.profile.legal'))->columns(3)->schema([
-                Text::make(fn () => __('provider.fields.provider_type').': '.$provider->type?->getLabel()),
                 Text::make(fn () => __('provider.fields.status').': '.$provider->status?->getLabel()),
-                Text::make(fn () => $provider->cr_number
-                    ? __('provider.fields.cr_number').': '.$provider->cr_number
-                    : __('provider.fields.national_id').': '.($provider->national_id ?? '-')),
+                Text::make(fn () => __('provider.fields.cr_number').': '.($provider->cr_number ?? '-')),
                 TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15'),
             ]),
             Section::make(__('provider.profile.contact'))->columns(2)->schema([
                 TextInput::make('phone')->label(__('provider.fields.phone'))->tel()->maxLength(20),
                 TextInput::make('email')->label(__('provider.fields.email'))->email()->maxLength(120),
                 TextInput::make('website')->label(__('provider.fields.website'))->url()->maxLength(200),
+                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->maxLength(500)->rule(new GoogleMapsLink)
+                    ->placeholder('https://maps.app.goo.gl/...'),
                 Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
                     ->options(fn () => City::orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
                 TextInput::make('address')->label(__('provider.fields.address'))->maxLength(255)->columnSpanFull(),
@@ -110,7 +110,7 @@ class EditProviderProfile extends EditTenantProfile
             }
         }
 
-        $allowed = ['name_ar', 'name_en', 'bio_ar', 'bio_en', 'logo', 'cover', 'vat_number', 'phone', 'email', 'website',
+        $allowed = ['name_ar', 'name_en', 'bio_ar', 'bio_en', 'logo', 'cover', 'vat_number', 'phone', 'email', 'website', 'maps_url',
             'city_id', 'address', 'lat', 'lng', 'bank_name', 'account_holder', 'iban'];
         $record->update(array_intersect_key($data, array_flip($allowed)));
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\CatalogController;
 use App\Http\Controllers\Api\V1\ComplaintController;
 use App\Http\Controllers\Api\V1\FavoriteController;
+use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\PaymentController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\V1\Provider;
 use App\Http\Controllers\Api\V1\ReviewController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\VenueController;
+use App\Http\Controllers\Api\V1\WalletController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -66,25 +68,28 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
         Route::delete('favorites/{venue}', [FavoriteController::class, 'destroy'])->whereNumber('venue')->name('favorites.destroy');
 
         // Bookings: pick slots → pending order (slots held for the payment window) + payment
-        Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
+        Route::post('bookings', [BookingController::class, 'store'])->middleware('throttle:actions')->name('bookings.store');
         Route::get('bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::get('bookings/{booking}', [BookingController::class, 'show'])->whereNumber('booking')->name('bookings.show');
 
         // Orders & payments
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{order}', [OrderController::class, 'show'])->whereNumber('order')->name('orders.show');
-        Route::post('orders/{order}/pay', [PaymentController::class, 'retry'])->whereNumber('order')->name('orders.pay');
-        Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->whereNumber('order')->name('orders.cancel');
+        Route::post('orders/{order}/pay', [PaymentController::class, 'retry'])->whereNumber('order')->middleware('throttle:actions')->name('orders.pay');
+        Route::post('orders/{order}/pay-wallet', [PaymentController::class, 'wallet'])->whereNumber('order')->middleware('throttle:actions')->name('orders.pay-wallet');
+        Route::get('wallet', [WalletController::class, 'show'])->name('wallet.show');
+        Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('invoices/{order}', [InvoiceController::class, 'show'])->whereNumber('order')->name('invoices.show');
         Route::get('orders/{order}/refund-quote', [OrderController::class, 'refundQuote'])->whereNumber('order')->name('orders.refund-quote');
-        Route::post('orders/{order}/refund', [OrderController::class, 'refund'])->whereNumber('order')->name('orders.refund');
+        Route::post('orders/{order}/refund', [OrderController::class, 'refund'])->whereNumber('order')->middleware('throttle:actions')->name('orders.refund');
         Route::get('payments/{reference}', [PaymentController::class, 'show'])->name('payments.show');
 
         // Reviews & complaints
-        Route::post('reviews', [ReviewController::class, 'store'])->name('reviews.store');
+        Route::post('reviews', [ReviewController::class, 'store'])->middleware('throttle:actions')->name('reviews.store');
         Route::get('complaints', [ComplaintController::class, 'index'])->name('complaints.index');
-        Route::post('complaints', [ComplaintController::class, 'store'])->name('complaints.store');
+        Route::post('complaints', [ComplaintController::class, 'store'])->middleware('throttle:actions')->name('complaints.store');
         Route::get('complaints/{complaint}', [ComplaintController::class, 'show'])->whereNumber('complaint')->name('complaints.show');
-        Route::post('complaints/{complaint}/replies', [ComplaintController::class, 'reply'])->whereNumber('complaint')->name('complaints.reply');
+        Route::post('complaints/{complaint}/replies', [ComplaintController::class, 'reply'])->whereNumber('complaint')->middleware('throttle:actions')->name('complaints.reply');
 
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');

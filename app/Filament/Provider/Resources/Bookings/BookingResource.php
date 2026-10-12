@@ -13,6 +13,7 @@ use App\Filament\Support\Fmt;
 use App\Models\Booking;
 use App\Services\AvailabilityService;
 use App\Services\CheckInService;
+use App\Support\Like;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -80,7 +81,8 @@ class BookingResource extends Resource
     {
         $tz = AvailabilityService::timezone();
 
-        return $booking->starts_at->timezone($tz)->format('Y-m-d H:i').' - '.$booking->ends_at->timezone($tz)->format('H:i');
+        // Wrapped in left-to-right isolate marks: without them Arabic text shows it as "20:00 - 18:00 2026-10-10".
+        return "\u{2066}".$booking->starts_at->timezone($tz)->format('Y-m-d H:i').' - '.$booking->ends_at->timezone($tz)->format('H:i')."\u{2069}";
     }
 
     public static function checkInAction(): Action
@@ -131,17 +133,17 @@ class BookingResource extends Resource
             ->emptyStateDescription(__('provider.bookings.empty_hint'))
             ->columns([
                 TextColumn::make('code')->label(__('provider.fields.code'))->searchable()->fontFamily('mono')->weight('bold')->copyable(),
-                TextColumn::make('venue.name_ar')->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(25)->toggleable(),
+                TextColumn::make('venue.name_ar')->visible(fn () => ProviderAccess::manyStores())->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(25)->toggleable(),
                 TextColumn::make('activity.name_ar')->formatStateUsing(Fmt::localized('activity.name'))->label(__('provider.fields.activity'))
                     ->description(fn (Booking $r) => Fmt::tr($r->resource, 'name')),
                 TextColumn::make('customer')->label(__('provider.fields.customer'))
                     ->state(fn (Booking $r) => $r->order?->customerDisplayName())
                     ->description(fn (Booking $r) => Fmt::phone($r->order?->user?->phone ?? $r->order?->customer_phone))
                     ->searchable(query: fn (Builder $query, string $search) => $query->whereHas('order', fn ($o) => $o
-                        ->where('customer_name', 'like', "%{$search}%")
-                        ->orWhere('customer_phone', 'like', "%{$search}%")
-                        ->orWhere('number', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")))),
+                        ->where('customer_name', 'like', Like::contains($search))
+                        ->orWhere('customer_phone', 'like', Like::contains($search))
+                        ->orWhere('number', 'like', Like::contains($search))
+                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', Like::contains($search))->orWhere('phone', 'like', Like::contains($search))))),
                 TextColumn::make('starts_at')->label(__('provider.fields.time'))->sortable()
                     ->formatStateUsing(fn (Booking $record) => static::window($record))
                     ->description(fn (Booking $r) => __('provider.bookings.slots_line', ['slots' => $r->slots, 'minutes' => $r->slot_minutes])),
@@ -166,7 +168,7 @@ class BookingResource extends Resource
                         };
                     }),
                 SelectFilter::make('status')->label(__('provider.fields.status'))->options(BookingStatus::class)->multiple(),
-                SelectFilter::make('venue_id')->label(__('provider.fields.venue'))
+                SelectFilter::make('venue_id')->visible(fn () => ProviderAccess::manyStores())->label(__('provider.fields.venue'))
                     ->options(fn () => ProviderAccess::provider()?->venues()->orderBy('name_ar')->pluck('name_ar', 'id') ?? []),
             ])
             ->filtersFormColumns(3)

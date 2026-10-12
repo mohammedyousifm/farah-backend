@@ -14,6 +14,7 @@ use App\Models\Provider;
 use App\Models\Venue;
 use App\Services\AvailabilityService;
 use App\Services\RecommendationService;
+use App\Support\Like;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,12 +29,12 @@ class VenueController extends Controller
         $query = $this->withFavorite(Venue::visible()->with(VenueCardResource::RELATIONS), $request);
 
         if ($q = trim((string) $request->q)) {
-            $query->where(fn ($w) => $w->where('name_ar', 'like', "%{$q}%")
-                ->orWhere('name_en', 'like', "%{$q}%")
-                ->orWhere('summary_ar', 'like', "%{$q}%")
-                ->orWhere('address', 'like', "%{$q}%")
+            $query->where(fn ($w) => $w->where('name_ar', 'like', Like::contains($q))
+                ->orWhere('name_en', 'like', Like::contains($q))
+                ->orWhere('summary_ar', 'like', Like::contains($q))
+                ->orWhere('address', 'like', Like::contains($q))
                 ->orWhereHas('activities', fn ($a) => $a->where('is_active', true)
-                    ->where(fn ($n) => $n->where('name_ar', 'like', "%{$q}%")->orWhere('name_en', 'like', "%{$q}%"))));
+                    ->where(fn ($n) => $n->where('name_ar', 'like', Like::contains($q))->orWhere('name_en', 'like', Like::contains($q)))));
         }
 
         // A venue has no sector of its own: it matches through the activities it offers.
@@ -188,7 +189,13 @@ class VenueController extends Controller
             $query->select('venues.*');
         }
 
+        // One degree of latitude is about 111 km: an indexable box first, the exact circle inside it.
+        $dLat = $radius / 111;
+        $dLng = $radius / (111 * max(0.1, cos(deg2rad($lat))));
+
         $query->whereNotNull('venues.lat')
+            ->whereBetween('venues.lat', [$lat - $dLat, $lat + $dLat])
+            ->whereBetween('venues.lng', [$lng - $dLng, $lng + $dLng])
             ->selectRaw("{$formula} as distance_km", [$lat, $lng, $lat])
             ->whereRaw("{$formula} <= ?", [$lat, $lng, $lat, $radius]);
     }

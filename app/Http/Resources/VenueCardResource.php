@@ -2,12 +2,18 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Venue;
 use App\Services\AvailabilityService;
+use App\Support\Thumb;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Compact venue for lists, rows and search results. @mixin \App\Models\Venue */
+/**
+ * Compact venue for lists, rows and search results.
+ *
+ * @mixin Venue
+ */
 class VenueCardResource extends JsonResource
 {
     /** Relations a card needs; eager load them wherever venues are listed. */
@@ -20,7 +26,7 @@ class VenueCardResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->tr('name'),
             'summary' => $this->tr('summary'),
-            'cover_url' => $this->coverUrl(),
+            'cover_url' => Thumb::url($this->cover_image),
             'min_price' => $this->min_price, // per hour
             'currency' => config('farah.currency'),
             'is_featured' => (bool) $this->is_featured,

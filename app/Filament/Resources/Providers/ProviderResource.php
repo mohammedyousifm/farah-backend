@@ -22,11 +22,14 @@ use App\Filament\Support\Fmt;
 use App\Models\City;
 use App\Models\Provider;
 use App\Models\User;
+use App\Rules\GoogleMapsLink;
 use App\Services\KpiService;
 use App\Services\LedgerService;
+use App\Support\Like;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,7 +40,6 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -113,10 +115,10 @@ class ProviderResource extends Resource
                         ->visibleOn('create')
                         ->getSearchResultsUsing(fn (string $search) => User::where('type', '!=', UserType::Admin->value)
                             ->whereDoesntHave('ownedProvider')
-                            ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"))
+                            ->where(fn ($q) => $q->where('name', 'like', Like::contains($search))->orWhere('phone', 'like', Like::contains($search))->orWhere('email', 'like', Like::contains($search)))
                             ->limit(20)->get()->mapWithKeys(fn (User $u) => [$u->id => "{$u->name} ({$u->phone}{$u->email})"]))
                         ->getOptionLabelUsing(fn ($value) => User::find($value)?->name),
-                    Select::make('type')->label(__('admin.fields.provider_type'))->options(ProviderType::class)->required()->live(),
+                    Hidden::make('type')->default(ProviderType::Establishment->value),
                     TextInput::make('name_ar')->label(__('admin.fields.name_ar'))->required()->maxLength(255),
                     TextInput::make('name_en')->label(__('admin.fields.name_en'))->maxLength(255),
                     Textarea::make('bio_ar')->label(__('admin.fields.bio_ar'))->rows(3),
@@ -128,16 +130,14 @@ class ProviderResource extends Resource
                     TextInput::make('phone')->label(__('admin.fields.phone'))->tel(),
                     TextInput::make('email')->label(__('admin.fields.email'))->email(),
                     TextInput::make('website')->label(__('admin.fields.website'))->url(),
+                    TextInput::make('maps_url')->label(__('admin.fields.maps_url'))->url()->maxLength(500)->rule(new GoogleMapsLink),
                     Select::make('city_id')->label(__('admin.fields.city'))->options(fn () => City::orderBy('sort_order')->pluck('name_ar', 'id'))->searchable(),
                     TextInput::make('address')->label(__('admin.fields.address'))->columnSpanFull(),
                     TextInput::make('lat')->label(__('admin.fields.lat'))->numeric(),
                     TextInput::make('lng')->label(__('admin.fields.lng'))->numeric(),
                 ]),
                 Tab::make(__('admin.tabs.legal'))->icon('heroicon-o-scale')->columns(2)->schema([
-                    TextInput::make('national_id')->label(__('admin.fields.national_id'))->maxLength(20)
-                        ->visible(fn (Get $get) => in_array($get('type'), [ProviderType::Individual, ProviderType::Individual->value], true)),
-                    TextInput::make('cr_number')->label(__('admin.fields.cr_number'))->maxLength(20)
-                        ->visible(fn (Get $get) => in_array($get('type'), [ProviderType::Establishment, ProviderType::Establishment->value], true)),
+                    TextInput::make('cr_number')->label(__('admin.fields.cr_number'))->maxLength(20),
                     TextInput::make('legal_name')->label(__('admin.fields.legal_name')),
                     TextInput::make('vat_number')->label(__('admin.fields.vat_number'))->maxLength(20),
                 ]),
@@ -173,6 +173,8 @@ class ProviderResource extends Resource
                     TextEntry::make('city.name_ar')->formatStateUsing(Fmt::localized('city.name'))->label(__('admin.fields.city'))->placeholder('-'),
                     TextEntry::make('address')->label(__('admin.fields.address'))->placeholder('-'),
                     TextEntry::make('website')->label(__('admin.fields.website'))->placeholder('-')->url(fn ($state) => $state, true),
+                    TextEntry::make('maps_url')->label(__('admin.fields.maps_url'))->placeholder('-')
+                        ->formatStateUsing(fn () => __('admin.actions.open_map'))->url(fn ($state) => $state, true)->color('primary'),
                     TextEntry::make('rating_avg')->label(__('admin.fields.rating'))
                         ->formatStateUsing(fn ($state, Provider $r) => number_format((float) $state, 1).' ★ ('.$r->rating_count.')'),
                     TextEntry::make('submitted_at')->label(__('admin.fields.submitted_at'))->dateTime()->placeholder('-'),
@@ -183,7 +185,6 @@ class ProviderResource extends Resource
                     TextEntry::make('internal_notes')->label(__('admin.fields.internal_notes'))->placeholder('-')->columnSpanFull(),
                 ]),
                 Tab::make(__('admin.tabs.legal'))->icon('heroicon-o-scale')->columns(3)->schema([
-                    TextEntry::make('national_id')->label(__('admin.fields.national_id'))->placeholder('-'),
                     TextEntry::make('cr_number')->label(__('admin.fields.cr_number'))->placeholder('-')->copyable(),
                     TextEntry::make('legal_name')->label(__('admin.fields.legal_name'))->placeholder('-'),
                     TextEntry::make('vat_number')->label(__('admin.fields.vat_number'))->placeholder('-'),

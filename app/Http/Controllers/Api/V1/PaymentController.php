@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
 use App\Services\PaymentService;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -29,5 +30,17 @@ class PaymentController extends Controller
         $payment = $payments->checkout($request->user(), collect([$model]));
 
         return response()->json(['data' => ['payment' => new PaymentResource($payment)]], 201);
+    }
+
+    /** Pay a pending order from the Farah wallet. The balance must cover the whole order. */
+    public function wallet(Request $request, int $order, WalletService $wallet, PaymentService $payments): JsonResponse
+    {
+        $model = $request->user()->orders()->findOrFail($order);
+        $payment = $wallet->pay($request->user(), $model, $payments);
+
+        return response()->json(['data' => [
+            'payment' => new PaymentResource($payment),
+            'wallet_balance' => $wallet->balance($request->user()),
+        ]]);
     }
 }

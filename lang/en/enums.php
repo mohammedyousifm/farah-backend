@@ -3,7 +3,7 @@
 return [
     'user_type' => ['customer' => 'Customer', 'provider' => 'Provider', 'admin' => 'Admin'],
     'user_status' => ['active' => 'Active', 'suspended' => 'Suspended'],
-    'provider_type' => ['individual' => 'Individual', 'establishment' => 'Establishment'],
+    'provider_type' => ['establishment' => 'Establishment'],
     'provider_status' => ['pending' => 'Pending approval', 'approved' => 'Approved', 'rejected' => 'Rejected', 'suspended' => 'Suspended'],
     'internal_rating' => ['green' => 'Green', 'yellow' => 'Yellow', 'red' => 'Red'],
     'document_type' => [
@@ -69,6 +69,7 @@ return [
         'closed' => 'Closed',
     ],
     'complaint_status' => ['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'],
+    'wallet_type' => ['refund' => 'Refund', 'compensation' => 'Compensation', 'reward' => 'Reward', 'payment' => 'Booking payment'],
     'ledger_type' => [
         'sale' => 'Sale',
         'commission' => 'Commission',

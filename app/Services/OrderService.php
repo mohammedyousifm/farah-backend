@@ -127,6 +127,7 @@ class OrderService
             $locked->bookings()->update(['status' => BookingStatus::Confirmed, 'cancelled_at' => null]);
 
             $this->ledger->recordOrder($locked);
+            app(InvoiceService::class)->issue($locked);
 
             return $locked;
         });
@@ -148,7 +149,10 @@ class OrderService
         return $confirmed->fresh(['bookings']);
     }
 
-    /** Cancel an unpaid order and free its slots (row-locked against a concurrent payment). */
+    /**
+     * Release an unpaid order and free its slots (row-locked against a concurrent payment).
+     * Nobody cancels an order by hand: this runs when the payment window ends.
+     */
     public function cancelUnpaid(Order $order, ?string $reason = null, OrderStatus $status = OrderStatus::Cancelled): void
     {
         DB::transaction(function () use ($order, $reason, $status) {
@@ -201,6 +205,44 @@ class OrderService
         return Order::where('status', OrderStatus::Confirmed)
             ->whereDoesntHave('bookings', fn ($q) => $q->whereIn('status', [BookingStatus::Confirmed, BookingStatus::CheckedIn]))
             ->update(['status' => OrderStatus::Completed, 'completed_at' => now()]);
+    }
+
+    /**
+     * Scheduler: once every booking of an order has ended, ask the customer to rate the visit. Once per order,
+     * never for an order that is already rated, was cancelled, or was sold at the counter (no app account).
+     * Only visits that ended in the last day are asked about, so nothing old is dug up.
+     */
+    public function promptReviews(): int
+    {
+        $due = Order::whereNull('review_prompted_at')
+            ->whereNotNull('user_id')
+            ->whereIn('status', [OrderStatus::Confirmed, OrderStatus::Completed, OrderStatus::PartiallyRefunded])
+            ->whereHas('bookings', fn ($q) => $q->whereIn('status', [BookingStatus::CheckedIn, BookingStatus::Completed])
+                ->whereBetween('ends_at', [now()->subDay(), now()]))
+            // Still something to play: wait until the last booked hour is over.
+            ->whereDoesntHave('bookings', fn ($q) => $q->whereIn('status', [BookingStatus::Confirmed, BookingStatus::CheckedIn])->where('ends_at', '>', now()))
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('reviews')->whereColumn('reviews.order_id', 'orders.id'))
+            ->with(['user', 'venue', 'bookings'])
+            ->limit(200)
+            ->get();
+
+        $sent = 0;
+        foreach ($due as $order) {
+            // Claimed first, so two runs at the same moment can never ask twice.
+            if (Order::whereKey($order->id)->whereNull('review_prompted_at')->update(['review_prompted_at' => now()]) === 0 || ! $order->user) {
+                continue;
+            }
+
+            SystemNotification::send($order->user, 'review_prompt', ['venue' => $order->venue?->tr('name') ?? ''], [
+                'action' => 'review',
+                'order_id' => $order->id,
+                'booking_id' => $order->bookings->first()?->id,
+                'venue_id' => $order->venue_id,
+            ]);
+            $sent++;
+        }
+
+        return $sent;
     }
 
     public function syncAccounting(Order $order): void

@@ -133,8 +133,8 @@ class BookingFlowTest extends ApiTestCase
         $this->getJson('/api/v1/bookings?scope=past')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/bookings?scope=all')->assertOk()->assertJsonCount(1, 'data');
 
-        // A paid order cannot be cancelled, but a refund can be requested.
-        $this->postJson("/api/v1/orders/{$orderId}/cancel")->assertStatus(422)->assertJsonPath('code', 'order_paid');
+        // Nobody cancels an order from the app; a refund can be requested.
+        $this->postJson("/api/v1/orders/{$orderId}/cancel")->assertNotFound();
         $this->getJson("/api/v1/orders/{$orderId}/refund-quote")->assertOk()
             ->assertJsonPath('data.policy', 'flexible')
             ->assertJsonPath('data.percent', 100)
@@ -150,7 +150,11 @@ class BookingFlowTest extends ApiTestCase
             ->assertJsonPath('data.items', [['booking_id' => $bookingId]]);
         $this->postJson("/api/v1/orders/{$orderId}/refund")->assertStatus(422)->assertJsonPath('code', 'refund_pending');
 
-        // Review after booking; the venue rating follows.
+        // Not before the visit...
+        $this->postJson('/api/v1/reviews', ['order_id' => $orderId, 'rating' => 5])->assertStatus(403)->assertJsonPath('code', 'review_too_early');
+
+        // ...but once the booked time has started; the venue rating follows.
+        $this->travelTo($this->slot()->addMinutes(10));
         $this->postJson('/api/v1/reviews', ['order_id' => $orderId, 'rating' => 5, 'comment' => 'رائع'])->assertCreated();
         $this->postJson('/api/v1/reviews', ['order_id' => $orderId, 'rating' => 4])->assertStatus(422)->assertJsonPath('code', 'already_reviewed');
         $this->getJson("/api/v1/orders/{$orderId}")->assertJsonPath('data.has_review', true);
@@ -286,24 +290,15 @@ class BookingFlowTest extends ApiTestCase
         $this->assertTrue($this->slot()->equalTo(CarbonImmutable::parse($start)));
     }
 
-    public function test_unpaid_order_can_be_cancelled_or_paid_again_and_expires(): void
+    public function test_unpaid_order_can_be_paid_again_and_expires(): void
     {
         $venue = $this->venue($this->provider());
         Sanctum::actingAs($this->customer());
 
-        // Cancel: the slots are free again at once.
-        $first = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
-        $this->postJson('/api/v1/orders/'.$first->json('data.order.id').'/cancel')->assertOk()
-            ->assertJsonPath('data.status.value', 'cancelled')
-            ->assertJsonPath('data.bookings.0.status.value', 'cancelled');
-        $this->assertSame(0, BookingSlot::count());
-        $this->getJson('/api/v1/bookings')->assertJsonCount(0, 'data');
-        $this->getJson('/api/v1/bookings?scope=past')->assertJsonCount(1, 'data');
-
         // Pay again: a fresh checkout session for the same held order.
-        $this->travel(20)->seconds();
         $second = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
         $orderId = $second->json('data.order.id');
+        $this->travel(20)->seconds();
         $retry = $this->postJson("/api/v1/orders/{$orderId}/pay")->assertCreated()->assertJsonPath('data.payment.status.value', 'initiated');
         $this->assertNotSame($second->json('data.payment.reference'), $retry->json('data.payment.reference'));
         $this->assertSame(2, BookingSlot::count());

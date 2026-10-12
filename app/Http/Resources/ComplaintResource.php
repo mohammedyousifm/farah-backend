@@ -19,6 +19,8 @@ class ComplaintResource extends JsonResource
             'body' => $this->body,
             'status' => $this->status?->toArray(),
             'order_id' => $this->order_id,
+            'order_number' => $this->order_id ? $this->order?->number : null,
+            'venue_name' => $this->venue_id ? $this->venue?->tr('name') : null,
             'venue_id' => $this->venue_id,
             'provider_id' => $this->provider_id,
             'resolution' => $this->resolution,

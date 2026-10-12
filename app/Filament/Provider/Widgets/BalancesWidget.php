@@ -11,6 +11,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 /** Wallet balances (LedgerService::balances) on top of the finance statement. */
 class BalancesWidget extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected int|string|array $columnSpan = 'full';

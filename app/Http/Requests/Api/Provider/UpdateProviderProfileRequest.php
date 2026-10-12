@@ -3,8 +3,9 @@
 namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
+use App\Rules\GoogleMapsLink;
 
-/** Storefront + payout details. Legal identity (type, national_id, cr_number) is fixed after registration. */
+/** Storefront + payout details. Legal identity (type, cr_number) is fixed after registration. */
 class UpdateProviderProfileRequest extends ApiRequest
 {
     public function rules(): array
@@ -17,6 +18,7 @@ class UpdateProviderProfileRequest extends ApiRequest
             'email' => ['sometimes', 'nullable', 'email', 'max:120'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'website' => ['sometimes', 'nullable', 'url', 'max:200'],
+            'maps_url' => ['sometimes', 'nullable', 'url', 'max:500', new GoogleMapsLink],
             'city_id' => ['sometimes', 'exists:cities,id'],
             'address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],

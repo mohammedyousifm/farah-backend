@@ -3,7 +3,7 @@
 return [
     'user_type' => ['customer' => 'عميل', 'provider' => 'مقدم خدمة', 'admin' => 'إداري'],
     'user_status' => ['active' => 'نشط', 'suspended' => 'موقوف'],
-    'provider_type' => ['individual' => 'فرد', 'establishment' => 'منشأة'],
+    'provider_type' => ['establishment' => 'منشأة'],
     'provider_status' => ['pending' => 'بانتظار الاعتماد', 'approved' => 'معتمد', 'rejected' => 'مرفوض', 'suspended' => 'موقوف'],
     'internal_rating' => ['green' => 'أخضر', 'yellow' => 'أصفر', 'red' => 'أحمر'],
     'document_type' => [
@@ -69,6 +69,7 @@ return [
         'closed' => 'مغلق',
     ],
     'complaint_status' => ['open' => 'مفتوحة', 'in_progress' => 'قيد المعالجة', 'resolved' => 'محلولة', 'closed' => 'مغلقة'],
+    'wallet_type' => ['refund' => 'استرداد', 'compensation' => 'تعويض', 'reward' => 'مكافأة', 'payment' => 'دفع حجز'],
     'ledger_type' => [
         'sale' => 'مبيعات',
         'commission' => 'عمولة',

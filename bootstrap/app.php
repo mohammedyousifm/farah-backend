@@ -2,7 +2,10 @@
 
 use App\Exceptions\BusinessException;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\PreventDuplicateRequests;
+use App\Http\Middleware\RequestId;
 use App\Http\Middleware\ResolveProvider;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetApiLocale;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -22,13 +25,15 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // --- API (owned by the API workstream) ---
-        $middleware->api(prepend: [SetApiLocale::class]);
+        $middleware->append([RequestId::class, SecurityHeaders::class]);
+        $middleware->api(prepend: [SetApiLocale::class], append: [PreventDuplicateRequests::class]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
             'provider' => ResolveProvider::class,
         ]);
         // Fake payment gateway form posts from a standalone page.
-        $middleware->preventRequestForgery(except: ['payments/fake/*']);
+        // The phone scanner page stays open for a whole shift; its long random link is the key.
+        $middleware->preventRequestForgery(except: ['payments/fake/*', 'scan/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

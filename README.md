@@ -4,7 +4,7 @@
 
 Model: **Provider** (business) → **Venue** (place) → **Activity** (billiards, bowling..., priced per hour) → **Resource** (table 3, lane 1; each has its own availability) → time slots → **Booking** → **Order** (payment container) → **Payment**.
 
-**Scope decision:** only **customers** use the mobile app (React Native, later, talks to `/api/v1`).
+**Scope decision:** only **customers** use the mobile app (Flutter, in the `farah-app` repository, talks to `/api/v1`).
 The **super admin** (`/admin`) and **providers** (`/provider`) each use a **web dashboard**.
 The public landing page at `/` markets the platform to venue owners (sign in / list your venue) and announces the customer app.
 The provider REST endpoints (`/api/v1/provider/*`) are kept, but the web dashboard is the provider's primary tool.
@@ -18,6 +18,38 @@ The provider REST endpoints (`/api/v1/provider/*`) are kept, but the web dashboa
 | Landing page | Blade + inline CSS, `/` (`?lang=en` / `?lang=ar`) |
 | RBAC | spatie/laravel-permission |
 | Exports | maatwebsite/excel (Excel/CSV) + Arabic-capable PDF |
+
+## Quality
+
+```bash
+composer check       # everything below, in order
+composer lint        # code style (Pint, rules in pint.json); `composer format` fixes it
+composer analyse     # static analysis (Larastan level 1, no ignore list; see phpstan.neon)
+composer test        # the test suite, on its own database (farah_testing)
+```
+
+The same three run on every push (`.github/workflows/ci.yml`). Model fields are documented by
+generated `@property` blocks; refresh them after a migration with
+`php artisan ide-helper:models --write --reset`.
+
+## Operations
+
+| Command | When | What it does |
+|---|---|---|
+| `php artisan farah:doctor` | after every deployment | Fails on anything unsafe or missing: debug mode, plain HTTP, placeholder secrets, stand-in SMS / payment, scheduler not running |
+| `php artisan schedule:run` | every minute (cron) | Expires unpaid orders, completes bookings, asks for ratings, sends campaigns, prunes old data, writes the heartbeat |
+| `php artisan farah:prune` | daily (scheduled) | Deletes expired sign-in codes and tokens, old technical logs, read notifications |
+
+Every response carries `X-Request-Id`; the same id is on that request's log lines. Queries of
+500 ms and over are logged as "Slow query". Security measures and the go-live checklist are in
+[SECURITY.md](SECURITY.md); changes are in [CHANGELOG.md](CHANGELOG.md).
+
+## Notifications
+
+`SystemNotification::send($user, $key, $params, $data)` stores a row (shown in the app's inbox and
+in the dashboards' bell) and pushes it to the person's devices. Texts live in
+`lang/{ar,en}/notifications.php`. `PUSH_DRIVER=log` writes pushes to the log; `PUSH_DRIVER=fcm`
+with `FIREBASE_CREDENTIALS=<service-account.json>` sends them through Firebase.
 
 ## Run locally
 

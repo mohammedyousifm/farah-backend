@@ -29,21 +29,36 @@ class ProviderApiTest extends ApiTestCase
 
         $this->getJson('/api/v1/provider/profile')->assertForbidden()->assertJsonPath('code', 'not_provider_member');
 
-        $this->postJson('/api/v1/provider/register', [
-            'type' => 'establishment',
+        $details = [
             'name_ar' => 'مؤسسة الفرح',
             'name_en' => 'Farah Co',
             'city_id' => $this->city->id,
             'cr_number' => '1010123456',
+            'maps_url' => 'https://maps.app.goo.gl/AbCdEf123456',
+            'website' => 'https://farah-co.sa',
             'sector_ids' => [$this->sector->id],
-        ])->assertCreated()
+        ];
+
+        // Establishments only, and the place must be given as a Google Maps link.
+        $this->postJson('/api/v1/provider/register', ['type' => 'individual', 'national_id' => '1234567890'] + array_diff_key($details, ['cr_number' => 1]))
+            ->assertStatus(422)->assertJsonValidationErrors('cr_number');
+        $this->postJson('/api/v1/provider/register', array_diff_key($details, ['maps_url' => 1]))
+            ->assertStatus(422)->assertJsonValidationErrors('maps_url');
+        $this->postJson('/api/v1/provider/register', ['maps_url' => 'https://example.com/maps/our-place'] + $details)
+            ->assertStatus(422)->assertJsonValidationErrors('maps_url');
+
+        $this->postJson('/api/v1/provider/register', array_diff_key($details, ['website' => 1]))->assertCreated()
             ->assertJsonPath('data.status.value', 'pending')
+            ->assertJsonPath('data.type.value', 'establishment')
+            ->assertJsonPath('data.maps_url', 'https://maps.app.goo.gl/AbCdEf123456')
+            ->assertJsonPath('data.website', null)
             ->assertJsonPath('data.cr_number', '1010123456');
 
         $this->getJson('/api/v1/provider/profile')->assertOk()->assertJsonPath('data.name_en', 'Farah Co');
         $this->getJson('/api/v1/provider/sectors')->assertOk()->assertJsonPath('data.0.approval_status', 'pending');
 
         Storage::fake('public');
+        Storage::fake('local');
         $this->post('/api/v1/provider/documents', [
             'type' => 'commercial_register',
             'file' => UploadedFile::fake()->create('cr.pdf', 100, 'application/pdf'),
@@ -72,6 +87,7 @@ class ProviderApiTest extends ApiTestCase
     public function test_venue_management_and_submission(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $provider = $this->provider();
         Sanctum::actingAs($provider->owner);
 

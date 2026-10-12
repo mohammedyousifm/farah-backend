@@ -23,7 +23,11 @@ use Filament\Schemas\Schema;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
 
-/** RPT-01..11: filterable reports with totals and Excel / CSV / PDF export. */
+/**
+ * RPT-01..11: filterable reports with totals and Excel / CSV / PDF export.
+ *
+ * @property-read Schema $form the filter form, provided by Filament from form()
+ */
 class Reports extends Page
 {
     protected static string|\UnitEnum|null $navigationGroup = NavGroup::Reports;

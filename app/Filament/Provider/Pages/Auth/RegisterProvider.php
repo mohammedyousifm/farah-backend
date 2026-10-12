@@ -9,15 +9,14 @@ use App\Filament\Support\Fmt;
 use App\Models\City;
 use App\Models\Sector;
 use App\Models\User;
+use App\Rules\GoogleMapsLink;
 use App\Services\OtpService;
 use App\Services\ProviderService;
 use Filament\Auth\Pages\Register;
 use Filament\Forms\Components\CheckboxList;
-use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
@@ -34,8 +33,8 @@ class RegisterProvider extends Register
     protected Width|string|null $maxWidth = Width::FourExtraLarge;
 
     private const PROVIDER_FIELDS = [
-        'type', 'name_ar', 'name_en', 'national_id', 'cr_number', 'legal_name', 'vat_number',
-        'city_id', 'sector_ids', 'bank_name', 'iban', 'account_holder',
+        'name_ar', 'name_en', 'cr_number', 'legal_name', 'vat_number',
+        'city_id', 'maps_url', 'website', 'sector_ids', 'bank_name', 'iban', 'account_holder',
     ];
 
     public function getTitle(): string|Htmlable
@@ -50,8 +49,6 @@ class RegisterProvider extends Register
 
     public function form(Schema $schema): Schema
     {
-        $isType = fn (string $type) => fn (Get $get) => in_array($get('type'), [$type, ProviderType::from($type)], true);
-
         return $schema->components([
             Section::make(__('provider.register.account'))->columns(2)->schema([
                 $this->getNameFormComponent()->label(__('provider.fields.full_name')),
@@ -68,18 +65,18 @@ class RegisterProvider extends Register
                 $this->getPasswordConfirmationFormComponent(),
             ]),
             Section::make(__('provider.register.business'))->columns(2)->schema([
-                Radio::make('type')->label(__('provider.fields.provider_type'))->options(ProviderType::class)
-                    ->default(ProviderType::Establishment->value)->required()->inline()->live()->columnSpanFull(),
                 TextInput::make('name_ar')->label(__('provider.fields.business_name_ar'))->required()->maxLength(150),
                 TextInput::make('name_en')->label(__('provider.fields.business_name_en'))->maxLength(150),
-                TextInput::make('cr_number')->label(__('provider.fields.cr_number'))->rule('digits:10')
-                    ->visible($isType('establishment'))->required($isType('establishment')),
-                TextInput::make('national_id')->label(__('provider.fields.national_id'))->rule('digits:10')
-                    ->visible($isType('individual'))->required($isType('individual')),
+                TextInput::make('cr_number')->label(__('provider.fields.cr_number'))->rule('digits:10')->required(),
                 TextInput::make('legal_name')->label(__('provider.fields.legal_name'))->maxLength(200),
                 TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15'),
                 Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
                     ->options(fn () => City::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
+                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->required()->maxLength(500)
+                    ->rule(new GoogleMapsLink)->placeholder('https://maps.app.goo.gl/...')
+                    ->helperText(__('provider.register.maps_url_hint'))->extraInputAttributes(['dir' => 'ltr']),
+                TextInput::make('website')->label(__('provider.register.website_optional'))->url()->maxLength(200)
+                    ->placeholder('https://')->extraInputAttributes(['dir' => 'ltr']),
                 CheckboxList::make('sector_ids')->label(__('provider.fields.sectors'))->required()->columns(2)->columnSpanFull()
                     ->options(fn () => Sector::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id'))
                     ->helperText(__('provider.register.sectors_hint')),
@@ -105,6 +102,7 @@ class RegisterProvider extends Register
         ]);
 
         $provider = Arr::only($data, self::PROVIDER_FIELDS);
+        $provider['type'] = ProviderType::Establishment->value;
         $provider['email'] = $user->email;
         $provider['phone'] = $user->phone;
         $provider['sector_ids'] = array_map('intval', (array) ($provider['sector_ids'] ?? []));

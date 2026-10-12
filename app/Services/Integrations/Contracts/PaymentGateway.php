@@ -6,7 +6,7 @@ use App\Models\Payment;
 
 /**
  * Third-party services sit behind interfaces so real providers (Moyasar/HyperPay,
- * Unifonic/Taqnyat, Wathq, Qoyod/Daftra, FCM) can be swapped via config/farah.php.
+ * Unifonic/Taqnyat, Qoyod/Daftra, FCM) can be swapped via config/farah.php.
  */
 interface PaymentGateway
 {

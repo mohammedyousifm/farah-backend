@@ -23,6 +23,27 @@ Provider (business) → Venue (place) → Activity (billiards, bowling, ... pric
 
 ## 1. Conventions
 
+**Every response**
+
+- `X-Request-Id`: quote it when reporting a problem. Send your own (8-64 letters, digits or dashes) and it is kept.
+- Answers to a signed-in caller carry `Cache-Control: no-store`.
+
+**Reading**
+
+- The public lists (`/home` for guests, `/cities`, `/sectors`) carry an `ETag`. Send it back as
+  `If-None-Match` and an unchanged list answers `304 Not Modified` with no body.
+
+**Acting**
+
+- The same action sent twice within 5 seconds (same person, address and body) runs once; the repeat
+  gets the first answer with `X-Duplicate-Request: replayed`. Errors are not remembered, so a
+  corrected request goes through.
+- Booking, paying, asking for a refund, rating and complaining share a limit of
+  30 a minute per person (`429`, code `too_many_attempts`, with `retry_after` seconds).
+- `POST /reviews` answers `403` / `review_too_early` until the booking has started or the customer
+  was checked in, and `422` / `already_reviewed` after the first rating.
+- `has_review` is on an order, and on the `order` of every booking in `GET /bookings`.
+
 ### Headers
 
 | Header | When | Notes |
@@ -357,16 +378,34 @@ still waiting for payment), `past` (completed / cancelled / expired or already e
 |---|---|---|
 | GET | `/orders` | `?status=confirmed,completed&scope=upcoming\|past&per_page=` — paginated, includes `venue`, `provider`, `bookings`, `has_review` |
 | GET | `/orders/{id}` | + `payment`, `refunds` |
-| POST | `/orders/{id}/cancel` | `{reason?}` — only `pending_payment` (releases the slots at once); paid orders → `order_paid`; twice → `order_already_cancelled` |
 | POST | `/orders/{id}/pay` | new payment session (see 3.4); `order_not_payable` unless `pending_payment` |
 | GET | `/orders/{id}/refund-quote` | `{policy, hours_before_start, percent, amount, refundable_amount, eligible}` — the clock runs to the earliest booking of the order |
-| POST | `/orders/{id}/refund` | `{reason?, items?: [{booking_id}]}` — omit `items` for a full refund, or list the bookings to give up. Creates a refund request reviewed by the admin team (`refund_pending` while one is open) |
+| POST | `/orders/{id}/refund` | `{reason?, items?: [{booking_id}]}` — omit `items` for a full refund, or list the bookings to give up. Creates a refund request reviewed by the admin team (`refund_pending` while one is open). Once approved the amount is added to the customer's Farah wallet |
+| POST | `/orders/{id}/pay-wallet` | Pay a pending order from the Farah wallet. The balance must cover the whole order (`422 wallet_not_enough` otherwise; the wallet never pays a part). Returns `{payment, wallet_balance}` with the payment already `paid` and the order confirmed |
+| GET | `/wallet` | `{balance, currency, transactions[]}` — the last 100 movements, newest first |
 
 `scope=upcoming` = orders with a booking that has not ended yet; `past` = the rest.
 Order statuses: `pending_payment, confirmed, completed, cancelled, expired, partially_refunded, refunded`.
 A processed refund cancels the refunded bookings and puts their slots back on sale.
 
+**Farah wallet.** A customer balance (`wallet_balance` on `/me`) that takes money from three sources only: a refund, compensation and a reward
+(the last two are added by the admin team). There is no top-up endpoint. It is spent in one way: paying a pending order in full.
+Wallet movement: `{id, type: {value: refund|compensation|reward|payment, label, color}, amount (negative for a payment), balance_after, order_id, order_number, note, created_at}`.
+A refund of an order paid from the wallet goes back to the wallet too.
+
 Refund: `{id, number, order_id, type: full|partial, amount, items: [{booking_id}] | null, reason, status, admin_notes, processed_at, created_at}`.
+
+#### Invoices
+
+Every paid order has one invoice, numbered in sequence at payment (`INV-2026-000001`). The seller is the provider; Farah issues the invoice on its behalf.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/invoices` | The customer's invoices, newest first. `per_page`, `page`. Each: `id` (the order id), `number`, `order_number`, `issued_at`, `is_tax_invoice`, `seller_name`, `venue_name`, `total`, `currency` |
+| GET | `/invoices/{order}` | The full invoice: `seller` (`name`, `vat_number`, `cr_number`, `address`), `buyer`, `lines[]` (`description`, `starts_at`, `ends_at`, `quantity`, `unit_price`, `total`), `discount`, `net`, `vat_rate`, `vat_amount`, `total`, `refunded_amount`, `qr`, `pdf_url`. `422 invoice_not_available` until the order is paid |
+
+- `is_tax_invoice` is true when the provider has a VAT number. Then `qr` holds the ZATCA phase-one content (Base64 TLV: seller, VAT number, time, total, VAT) to draw as a QR code. Otherwise the invoice is a plain one: `vat_amount` 0, `net` = `total`, `qr` null.
+- `pdf_url` is a signed link that works for 15 minutes and needs no token, so the phone's browser can open it. Ask for the invoice again to get a fresh link.
 
 ### 3.6 Reviews & complaints 🔑
 
@@ -391,7 +430,8 @@ Review: `{id, rating, comment, user: {id, name}, venue: {id, name}, order_id, pr
 
 Notification: `{id (uuid), key: "order_confirmed", title, body, data: {"order_id": 31}, read, read_at, created_at}`.
 Use `key` + `data` for navigation (`order_id`, `venue_id`, `payment_reference`, `provider_id`, ...).
-Keys include `order_confirmed`, `new_order`, `payment_failed`, `refund_processed`, `refund_rejected`, `venue_approved`,
+Keys include `order_confirmed`, `new_order`, `payment_failed`, `refund_to_wallet`, `wallet_compensation`, `wallet_reward` (these three carry `data.wallet: true`: open the wallet),
+`refund_processed`, `refund_rejected`, `venue_approved`,
 `venue_rejected`, `venue_suspended`, `provider_approved`, `team_invited`, `complaint_replied`, `campaign`.
 
 ### 3.8 Tracking 🔓
@@ -486,11 +526,11 @@ Everything is scoped to the acting provider: a venue, activity, resource, order 
 **Register**
 ```http
 POST /api/v1/provider/register
-{"type": "establishment", "name_ar": "مؤسسة الفرح", "name_en": "Farah Co", "city_id": 1,
- "cr_number": "1010123456", "vat_number": "300000000000003", "iban": "SA0380000000608010167519",
+{"name_ar": "مؤسسة الفرح", "name_en": "Farah Co", "city_id": 1,
+ "cr_number": "1010123456", "maps_url": "https://maps.app.goo.gl/abc123", "vat_number": "300000000000003", "iban": "SA0380000000608010167519",
  "bank_name": "Al Rajhi", "account_holder": "Farah Co", "sector_ids": [1, 3]}
 ```
-`type=individual` requires `national_id` (10 digits); `establishment` requires `cr_number`. Then upload documents.
+`cr_number` (10 digits) and `maps_url` (a Google Maps link to the place) are required; `website` is optional. Then upload documents.
 
 **Dashboard** `GET /provider/dashboard`
 ```json

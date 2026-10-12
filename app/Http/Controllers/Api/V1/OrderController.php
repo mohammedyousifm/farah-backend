@@ -8,7 +8,6 @@ use App\Http\Resources\OrderResource;
 use App\Http\Resources\RefundResource;
 use App\Models\Order;
 use App\Models\Review;
-use App\Services\OrderService;
 use App\Services\RefundService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,15 +39,6 @@ class OrderController extends Controller
         $model->setAttribute('reviews_exists', Review::where('order_id', $model->id)->exists());
 
         return new OrderResource($model);
-    }
-
-    /** Give up an unpaid order: the held slots go back on sale at once. */
-    public function cancel(Request $request, int $order, OrderService $orders): JsonResponse
-    {
-        $model = $this->find($request, $order);
-        $orders->cancelUnpaid($model, mb_substr((string) $request->input('reason', 'customer_cancelled'), 0, 250));
-
-        return response()->json(['message' => __('api.orders.cancelled'), 'data' => new OrderResource($model->fresh()->load(self::RELATIONS))]);
     }
 
     public function refundQuote(Request $request, int $order, RefundService $refunds): JsonResponse

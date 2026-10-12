@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'duplicate_request' => 'Your request is already being processed, one moment please.',
     'too_many_attempts' => 'Too many attempts. Wait :seconds seconds and try again.',
     'unauthenticated' => 'You must be logged in.',
     'forbidden' => 'You are not allowed to perform this action.',
@@ -44,7 +45,6 @@ return [
         'not_your_venue' => 'This venue does not belong to your account.',
         'already_cancelled' => 'This order is already cancelled.',
         'cannot_cancel_paid' => 'A paid order cannot be cancelled. You can request a refund.',
-        'cancelled' => 'Order cancelled.',
         'offline_created' => 'Booking recorded and confirmed.',
     ],
     'payments' => [
@@ -61,6 +61,12 @@ return [
         'invalid_transition' => 'This action is not allowed in the current status.',
         'refund_not_allowed' => 'A refund can only be issued when the dispute is resolved in the customer\'s favour.',
     ],
+    'wallet' => [
+        'not_enough' => 'The wallet balance does not cover this order in full.',
+        'invalid_type' => 'Only compensation or a reward can be added.',
+        'invalid_amount' => 'The amount must be above zero and no more than SAR :max.',
+        'customers_only' => 'The wallet is for customer accounts only.',
+    ],
     'refunds' => [
         'already_requested' => 'A refund request for this order is already under review.',
         'not_eligible' => 'This order is not eligible for a refund under the venue\'s policy.',
@@ -74,13 +80,14 @@ return [
     ],
     'reviews' => [
         'not_allowed' => 'You can only review venues you booked.',
+        'too_early' => 'You can rate once your booking time has started.',
         'already_reviewed' => 'You already reviewed this order.',
         'created' => 'Thanks for your review.',
         'replied' => 'Reply added.',
     ],
     'complaints' => [
-        'created' => 'We received your ticket and will get back to you soon.',
-        'closed' => 'This ticket is closed.',
+        'created' => 'We received your complaint and will get back to you soon.',
+        'closed' => 'This complaint is closed.',
     ],
     'providers' => [
         'already_registered' => 'You already have a provider account.',

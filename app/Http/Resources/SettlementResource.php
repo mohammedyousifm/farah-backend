@@ -5,7 +5,6 @@ namespace App\Http\Resources;
 use App\Models\Settlement;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 /** @mixin Settlement */
 class SettlementResource extends JsonResource
@@ -25,7 +24,7 @@ class SettlementResource extends JsonResource
             'status' => $this->status?->toArray(),
             'bank' => $this->bank_snapshot,
             'payment_reference' => $this->payment_reference,
-            'receipt_url' => $this->receipt_path ? Storage::disk('public')->url($this->receipt_path) : null,
+            'receipt_url' => $this->resource->receiptUrl(),
             'approved_at' => $this->approved_at?->toIso8601String(),
             'paid_at' => $this->paid_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),

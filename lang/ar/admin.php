@@ -4,6 +4,7 @@
 // Keys are referenced as __('admin.<group>.<key>') from app/Filament, services and views.
 
 return [
+    'scheduler_stale' => 'المهام الخلفية متوقفة منذ أكثر من عشر دقائق: الطلبات غير المدفوعة لا تنتهي والحجوزات لا تكتمل. تحقق من تشغيل cron على الخادم.',
     'currency' => 'ر.س',
     'done' => 'تم بنجاح',
     'yes' => 'نعم',
@@ -60,6 +61,10 @@ return [
         'complaints' => [
             'singular' => 'بلاغ',
             'plural' => 'البلاغات والشكاوى',
+        ],
+        'wallet' => [
+            'singular' => 'حركة محفظة',
+            'plural' => 'محفظة العملاء',
         ],
         'users' => [
             'singular' => 'مستخدم',
@@ -137,6 +142,9 @@ return [
         'overview' => 'نظرة عامة',
     ],
     'actions' => [
+        'wallet_grant' => 'إضافة رصيد للمحفظة',
+        'compensate' => 'تعويض العميل',
+        'open_map' => 'فتح الموقع على الخريطة',
         'reopen' => 'إعادة فتح',
         'close' => 'إغلاق',
         'remove_reply' => 'حذف رد المزوّد',
@@ -145,7 +153,6 @@ return [
         'reject' => 'رفض',
         'suspend' => 'إيقاف',
         'assign' => 'إسناد',
-        'cancel_unpaid' => 'إلغاء الطلب غير المدفوع',
         'feature' => 'تمييز',
         'unfeature' => 'إلغاء التمييز',
         'refund' => 'استرداد مبلغ',
@@ -174,6 +181,9 @@ return [
         'add_option' => 'إضافة خيار',
     ],
     'fields' => [
+        'wallet_balance' => 'رصيد المحفظة',
+        'balance_after' => 'الرصيد بعد الحركة',
+        'wallet_note' => 'سبب الإضافة',
         'media' => 'الوسائط',
         'preview' => 'معاينة',
         'link' => 'الرابط',
@@ -417,6 +427,7 @@ return [
         'uploaded_at' => 'تاريخ الرفع',
         'vat_number' => 'الرقم الضريبي',
         'website' => 'الموقع الإلكتروني',
+        'maps_url' => 'رابط الموقع على خرائط قوقل',
     ],
     'venues' => [
         'approve_hint' => 'سيُنشر المكان للعملاء ويُشعَر مقدم الخدمة.',
@@ -459,7 +470,7 @@ return [
         'accounting' => 'المحاسبة',
         'not_synced' => 'لم تتم المزامنة',
         'ledger_entries' => 'قيود دفتر الأستاذ',
-        'refund_hint' => 'يُنفَّذ الاسترداد فوراً عبر بوابة الدفع مع عكس العمولة. الحد الأقصى: :max ر.س',
+        'refund_hint' => 'يُضاف المبلغ إلى محفظة العميل في فرة فوراً مع عكس العمولة. الحد الأقصى: :max ر.س',
         'channels' => [
             'online' => 'إلكتروني',
             'offline' => 'مباشر',
@@ -503,6 +514,7 @@ return [
         'settlements' => 'التسويات',
         'commissions' => 'العمولات',
         'ledger' => 'دفتر الأستاذ',
+        'wallet' => 'محفظة العملاء',
         'reviews' => 'التقييمات',
         'complaints' => 'الشكاوى',
         'content' => 'المحتوى',
@@ -555,6 +567,7 @@ return [
         'suggestion' => 'اقتراح',
     ],
     'hints' => [
+        'wallet_grant' => 'يُضاف المبلغ إلى محفظة العميل فوراً ويصله إشعار. المحفظة للاستردادات والتعويضات والمكافآت فقط ولا يمكن شحنها. الحد الأقصى للإضافة الواحدة: :max ر.س',
         'iban' => 'يبدأ بـ SA ويليه 22 رقمًا، مثال: SA0380000000608010167519',
         'cannot_edit_own_roles' => 'لا يمكنك تعديل أدوارك أو حالتك بنفسك.',
         'commission_new_version' => 'سيتم إغلاق الإصدار الحالي في تاريخ السريان وإنشاء إصدار جديد. الطلبات السابقة تحتفظ بعمولتها الأصلية.',
@@ -707,7 +720,6 @@ return [
             'settlement_min_amount' => 'الحد الأدنى للتسوية',
             'order_payment_timeout_minutes' => 'مهلة الدفع (دقائق)',
             'max_bookings_per_order' => 'أقصى عدد حجوزات للطلب',
-            'cancellation_window_hours' => 'مهلة الإلغاء قبل موعد الحجز (ساعات)',
             'document_expiry_warning_days' => 'التنبيه قبل انتهاء الوثائق (أيام)',
             'support_phone' => 'هاتف الدعم',
             'support_email' => 'بريد الدعم',
@@ -719,7 +731,6 @@ return [
         ],
         'hints' => [
             'settlement_hold_days' => 'تصبح المبالغ متاحة للتسوية بعد انتهاء الحجز بهذه المدة.',
-            'cancellation_window_hours' => 'يمكن للعميل الإلغاء بنفسه حتى هذا العدد من الساعات قبل البدء.',
             'maintenance_mode' => 'يعرض التطبيق رسالة صيانة ويوقف الحجوزات.',
         ],
     ],
@@ -737,6 +748,7 @@ return [
         'deleted' => 'حذف',
     ],
     'payment_methods' => [
+        'wallet' => 'محفظة فرة',
         'mada' => 'مدى',
         'visa' => 'فيزا',
         'mastercard' => 'ماستركارد',

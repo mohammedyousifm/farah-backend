@@ -12,6 +12,7 @@ use App\Http\Resources\PaymentResource;
 use App\Models\BehaviorEvent;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Review;
 use App\Models\User;
 use App\Services\OrderService;
 use App\Services\PaymentService;
@@ -44,12 +45,20 @@ class BookingController extends Controller
             ->when(! in_array($scope, ['upcoming', 'past'], true), fn ($q) => $q->orderByDesc('starts_at'))
             ->paginate(min(max($request->integer('per_page', 20), 1), (int) config('farah.api.max_per_page', 50)));
 
+        // One query for the whole page: which of these orders were already rated ("rate" chip in the app).
+        $rated = Review::whereIn('order_id', $bookings->pluck('order_id')->filter()->unique())->pluck('order_id')->flip();
+        $bookings->each(fn ($booking) => $booking->order?->setAttribute('reviews_exists', $rated->has($booking->order_id)));
+
         return BookingResource::collection($bookings);
     }
 
     public function show(Request $request, int $booking): BookingResource
     {
-        return new BookingResource($request->user()->bookings()->with(self::RELATIONS)->findOrFail($booking));
+        $model = $request->user()->bookings()->with(self::RELATIONS)->findOrFail($booking);
+        // Lets the app offer "rate your visit" once, and say "already rated" afterwards.
+        $model->order?->setAttribute('reviews_exists', Review::where('order_id', $model->order_id)->exists());
+
+        return new BookingResource($model);
     }
 
     public function store(BookingRequest $request, OrderService $orders, PaymentService $payments): JsonResponse

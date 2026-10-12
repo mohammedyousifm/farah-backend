@@ -37,8 +37,8 @@ class ViewSettlement extends ViewRecord
                 ->visible(fn () => $can() && $s->status === SettlementStatus::Approved)
                 ->schema([
                     TextInput::make('reference')->label(__('admin.fields.payment_reference'))->required()->maxLength(255),
-                    FileUpload::make('receipt')->label(__('admin.fields.receipt'))->disk('public')->directory('settlements')
-                        ->acceptedFileTypes(['application/pdf', 'image/*'])->maxSize(10240),
+                    FileUpload::make('receipt')->label(__('admin.fields.receipt'))->disk(Settlement::RECEIPT_DISK)->visibility('private')->directory('settlements')
+                        ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])->maxSize(10240),
                 ])
                 ->action(fn (array $data) => Act::run(fn () => $this->service()->markPaid(
                     $s, auth()->user(), $data['reference'], $data['receipt'] ?? null,

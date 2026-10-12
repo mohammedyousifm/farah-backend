@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\RefundStatus;
+use App\Enums\WalletTransactionType;
 use App\Exceptions\BusinessException;
 use App\Models\Order;
 use App\Models\Payment;
@@ -13,6 +14,7 @@ use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Integrations\Contracts\PaymentGateway;
 use App\Services\Integrations\IntegrationLogger;
+use App\Support\AdminNotifier;
 use App\Support\DocNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +25,9 @@ use Illuminate\Support\Facades\DB;
  *
  * A refund covers the whole order or some of its bookings: items = [{booking_id}].
  *
+ * The money goes to the customer's Farah wallet at once, not back to the card. Only a
+ * payment that was taken by mistake (slot gone, paid twice) is returned the way it came.
+ *
  * Concurrency: every state change locks the order row first, and money that
  * is approved but not yet processed counts as reserved, so two admins (or an
  * admin and a provider cancellation) can never refund more than was paid.
@@ -32,6 +37,7 @@ class RefundService
     public function __construct(
         private PaymentGateway $gateway,
         private LedgerService $ledger,
+        private WalletService $wallet,
     ) {}
 
     /** Amount the customer is entitled to under the venue's refund policy right now. */
@@ -64,7 +70,7 @@ class RefundService
     /** Customer asks for a refund; admin reviews it. */
     public function request(Order $order, User $by, ?array $items, ?string $reason): Refund
     {
-        return DB::transaction(function () use ($order, $by, $items, $reason) {
+        $refund = DB::transaction(function () use ($order, $by, $items, $reason) {
             $order = $this->lockOrder($order);
             $this->assertRefundable($order);
 
@@ -96,6 +102,10 @@ class RefundService
                 'requested_by' => $by->id,
             ]);
         });
+
+        AdminNotifier::send(['finance'], 'admin_refund_requested', ['number' => $order->number, 'amount' => number_format((float) $refund->amount, 2)], ['order_id' => $order->id, 'refund_id' => $refund->id]);
+
+        return $refund;
     }
 
     /** Admin-initiated refund of any amount (e.g. venue closed, dispute resolved). */
@@ -223,7 +233,8 @@ class RefundService
         });
 
         if ($refund->user) {
-            SystemNotification::send($refund->user, 'refund_processed', ['number' => $order->number, 'amount' => number_format($refund->amount, 2)], ['order_id' => $order->id]);
+            $toWallet = $payment?->gateway === WalletService::GATEWAY;
+            SystemNotification::send($refund->user, $toWallet ? 'refund_to_wallet' : 'refund_processed', ['number' => $order->number, 'amount' => number_format($refund->amount, 2)], ['order_id' => $order->id] + ($toWallet ? ['wallet' => true] : []));
         }
     }
 
@@ -274,13 +285,17 @@ class RefundService
     {
         $order = $refund->order;
 
-        // 1. Money back through the gateway (online orders only; offline sales were paid to the provider).
-        if ($order->channel === 'online' && $order->payment) {
+        // 1. Online orders are refunded to the customer's wallet (step 2, same transaction as the books).
+        //    Offline sales were paid to the provider at the counter. An online order whose account
+        //    is gone has no wallet, so its money goes back through the gateway.
+        $toWallet = $order->channel === 'online' && $refund->user;
+
+        if (! $toWallet && $order->channel === 'online' && $order->payment) {
             $this->callGateway($refund, $order->payment, (string) $refund->reason);
         }
 
-        // 2. Books: order, payment, bookings, slots and ledger, all under the order lock.
-        DB::transaction(function () use ($refund) {
+        // 2. Books: order, payment, bookings, slots, ledger and wallet, all under the order lock.
+        DB::transaction(function () use ($refund, $toWallet) {
             $order = $this->lockOrder($refund->order);
             $locked = Refund::whereKey($refund->id)->lockForUpdate()->firstOrFail();
 
@@ -322,21 +337,37 @@ class RefundService
             // policy percentage (e.g. 50%) still gives up every remaining booking.
             $this->cancelBookings($order, $locked->items, $isFull || ($locked->type === 'full' && ! $locked->items));
             $this->ledger->recordRefund($locked);
+
+            if ($toWallet) {
+                $this->wallet->credit($locked->user, $locked->amount, WalletTransactionType::Refund, ['order_id' => $order->id, 'refund_id' => $locked->id]);
+            }
         });
 
         $refund->refresh();
 
         if ($refund->user && $refund->status === RefundStatus::Processed) {
-            SystemNotification::send($refund->user, 'refund_processed', ['number' => $order->number, 'amount' => number_format($refund->amount, 2)], ['order_id' => $order->id]);
+            SystemNotification::send($refund->user, $toWallet ? 'refund_to_wallet' : 'refund_processed', ['number' => $order->number, 'amount' => number_format($refund->amount, 2)], ['order_id' => $order->id] + ($toWallet ? ['wallet' => true] : []));
         }
 
         return $refund;
     }
 
-    /** Refund through the gateway; any failure marks the refund failed (releasing the reserved amount). */
+    /**
+     * Return the money the way it was paid: to the wallet for a wallet payment, otherwise through
+     * the gateway. Any gateway failure marks the refund failed (releasing the reserved amount).
+     */
     private function callGateway(Refund $refund, ?Payment $payment, string $reason): void
     {
         if (! $payment) {
+            return;
+        }
+
+        if ($payment->gateway === WalletService::GATEWAY) {
+            if ($refund->user) {
+                $transaction = $this->wallet->credit($refund->user, $refund->amount, WalletTransactionType::Refund, ['order_id' => $refund->order_id, 'refund_id' => $refund->id]);
+                $refund->gateway_refund_id = 'wallet-'.$transaction->id;
+            }
+
             return;
         }
 

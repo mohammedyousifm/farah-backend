@@ -9,7 +9,6 @@ enum ProviderType: string implements HasColor, HasLabel
 {
     use EnumHelpers;
 
-    case Individual = 'individual';
     case Establishment = 'establishment';
 
     public function getLabel(): string
@@ -19,9 +18,6 @@ enum ProviderType: string implements HasColor, HasLabel
 
     public function getColor(): string
     {
-        return match ($this) {
-            self::Individual => 'info',
-            self::Establishment => 'primary',
-        };
+        return 'primary';
     }
 }

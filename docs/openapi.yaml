@@ -1216,18 +1216,20 @@ paths:
       responses:
         '201': { description: "{data: {payment}}" }
         '422': { $ref: '#/components/responses/Business' }
-  /orders/{id}/cancel:
+  /orders/{id}/pay-wallet:
     post:
       tags: [Orders]
-      summary: Cancel an unpaid order (its slots go back on sale)
+      summary: Pay a pending order from the Farah wallet (the balance must cover the whole order)
       parameters: [ { $ref: '#/components/parameters/Id' } ]
-      requestBody:
-        content:
-          application/json:
-            schema: { type: object, properties: { reason: { type: string } } }
       responses:
-        '200': { description: Order }
+        '200': { description: "{data: {payment, wallet_balance}}; the payment is paid and the order confirmed" }
         '422': { $ref: '#/components/responses/Business' }
+  /wallet:
+    get:
+      tags: [Orders]
+      summary: Farah wallet, balance and movements (refunds, compensation and rewards in; payments out; no top-up)
+      responses:
+        '200': { description: "{data: {balance, currency, transactions: [{id, type, amount, balance_after, order_id, order_number, note, created_at}]}}" }
   /orders/{id}/refund-quote:
     get:
       tags: [Orders]
@@ -1345,9 +1347,8 @@ paths:
           application/json:
             schema:
               type: object
-              required: [type, name_ar, city_id, sector_ids]
+              required: [name_ar, cr_number, city_id, maps_url, sector_ids]
               properties:
-                type: { type: string, enum: [individual, establishment] }
                 name_ar: { type: string }
                 name_en: { type: string }
                 bio_ar: { type: string }
@@ -1355,12 +1356,12 @@ paths:
                 email: { type: string }
                 phone: { type: string }
                 website: { type: string }
+                maps_url: { type: string, description: Google Maps link to the place }
                 city_id: { type: integer }
                 address: { type: string }
                 lat: { type: number }
                 lng: { type: number }
-                national_id: { type: string, description: required for individual }
-                cr_number: { type: string, description: required for establishment }
+                cr_number: { type: string, description: 10 digits }
                 legal_name: { type: string }
                 vat_number: { type: string }
                 bank_name: { type: string }

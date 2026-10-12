@@ -9,6 +9,7 @@ use App\Models\Provider;
 use App\Models\User;
 use App\Models\Venue;
 use App\Notifications\SystemNotification;
+use App\Support\Once;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -99,6 +100,11 @@ class VenueService
 
     public function approve(Venue $venue, User $by): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($venue, 'status', VenueStatus::Published)) {
+            return;
+        }
+
         $venue->update([
             'status' => VenueStatus::Published,
             'reviewed_by' => $by->id,
@@ -112,6 +118,11 @@ class VenueService
 
     public function reject(Venue $venue, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($venue, 'status', VenueStatus::Rejected)) {
+            return;
+        }
+
         $venue->update(['status' => VenueStatus::Rejected, 'reviewed_by' => $by->id, 'reviewed_at' => now(), 'rejection_reason' => $reason]);
         SystemNotification::send($venue->provider->owner, 'venue_rejected', ['venue' => $venue->name_ar, 'reason' => $reason], ['venue_id' => $venue->id]);
     }
@@ -119,6 +130,11 @@ class VenueService
     /** Hides the venue and stops new bookings. Bookings already paid stay valid. */
     public function suspend(Venue $venue, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($venue, 'status', VenueStatus::Suspended)) {
+            return;
+        }
+
         $venue->update(['status' => VenueStatus::Suspended, 'rejection_reason' => $reason, 'reviewed_by' => $by->id, 'reviewed_at' => now()]);
         SystemNotification::send($venue->provider->owner, 'venue_suspended', ['venue' => $venue->name_ar, 'reason' => $reason], ['venue_id' => $venue->id]);
     }
@@ -149,12 +165,22 @@ class VenueService
 
     public function approveActivity(Activity $activity, User $by): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($activity, 'review_status', Activity::APPROVED)) {
+            return;
+        }
+
         $activity->update(['review_status' => Activity::APPROVED, 'is_active' => true, 'review_note' => null, 'reviewed_at' => now()]);
         SystemNotification::send($activity->venue->provider->owner, 'activity_approved', ['activity' => $activity->name_ar], ['venue_id' => $activity->venue_id, 'activity_id' => $activity->id]);
     }
 
     public function rejectActivity(Activity $activity, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($activity, 'review_status', Activity::REJECTED)) {
+            return;
+        }
+
         $activity->update(['review_status' => Activity::REJECTED, 'is_active' => false, 'review_note' => $reason, 'reviewed_at' => now()]);
         SystemNotification::send($activity->venue->provider->owner, 'activity_rejected', ['activity' => $activity->name_ar, 'reason' => $reason], ['venue_id' => $activity->venue_id, 'activity_id' => $activity->id]);
     }

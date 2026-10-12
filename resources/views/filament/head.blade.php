@@ -84,4 +84,24 @@
 
     .farah-json { font-size: .75rem; white-space: pre-wrap; word-break: break-word; direction: ltr; text-align: left; }
     .farah-diff td { vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid var(--farah-line); }
+
+    /* Big numbers stay on one line ("5,440.00 SAR" used to break in two). */
+    .fi-wi-stats-overview-stat-value { font-size: clamp(1.15rem, 1.6vw, 1.6rem) !important; white-space: nowrap; line-height: 1.3 !important; }
+
+    /* The row under the pointer is easy to follow across a wide table. */
+    .fi-ta-table tbody tr:hover > td { background: var(--farah-active-bg); }
+    .dark .fi-ta-table tbody tr:hover > td { background: rgba(178, 31, 209, .10); }
+
+    /* Keyboard users always see where they are. */
+    :focus-visible { outline: 2px solid var(--primary-500, #B21FD1); outline-offset: 2px; border-radius: 6px; }
+
+    /* Thin, quiet scrollbars instead of the heavy default ones. */
+    * { scrollbar-width: thin; scrollbar-color: rgba(127, 127, 127, .35) transparent; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-thumb { background: rgba(127, 127, 127, .35); border-radius: 999px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+
+    /* Selected text in the brand colour; no animation for people who asked their device for less motion. */
+    ::selection { background: rgba(178, 31, 209, .22); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 </style>

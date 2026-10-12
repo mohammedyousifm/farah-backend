@@ -10,7 +10,7 @@ class VerifyOtpRequest extends ApiRequest
     {
         return [
             'identifier' => ['required', 'string', 'max:120'],
-            'code' => ['required', 'string', 'size:4'],
+            'code' => ['required', 'string', 'min:4', 'max:8'],
             'device_name' => ['nullable', 'string', 'max:100'],
             'locale' => ['nullable', 'in:ar,en'],
         ];

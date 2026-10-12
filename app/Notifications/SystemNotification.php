@@ -36,6 +36,18 @@ class SystemNotification extends Notification
             'body_ar' => __("notifications.{$this->key}.body", $this->params, 'ar'),
             'body_en' => __("notifications.{$this->key}.body", $this->params, 'en'),
             'data' => $this->data,
+            // The same row shows in the bell of the admin and provider dashboards (Filament's own format).
+            'format' => 'filament',
+            'title' => __("notifications.{$this->key}.title", $this->params, $locale = $notifiable->locale ?? 'ar'),
+            'body' => __("notifications.{$this->key}.body", $this->params, $locale),
+            'duration' => 'persistent',
+            'actions' => [],
+            'icon' => 'heroicon-o-bell',
+            'iconColor' => 'primary',
+            'status' => null,
+            'color' => null,
+            'view' => null,
+            'viewData' => [],
         ];
     }
 
@@ -48,12 +60,10 @@ class SystemNotification extends Notification
         $tokens = method_exists($user, 'deviceTokens') ? $user->deviceTokens()->pluck('token')->all() : [];
         if ($tokens !== []) {
             $locale = $user->locale ?? 'ar';
-            app(PushSender::class)->send(
-                $tokens,
-                __("notifications.{$key}.title", $params, $locale),
-                __("notifications.{$key}.body", $params, $locale),
-                $data + ['key' => $key],
-            );
+            $title = __("notifications.{$key}.title", $params, $locale);
+            $body = __("notifications.{$key}.body", $params, $locale);
+            // After the reply has gone out: the push service must not slow the action that triggered it.
+            defer(fn () => app(PushSender::class)->send($tokens, $title, $body, $data + ['key' => $key]));
         }
     }
 }

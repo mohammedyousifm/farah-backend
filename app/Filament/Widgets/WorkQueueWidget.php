@@ -9,6 +9,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 /** Items waiting for an admin decision; each card links to its work-queue. */
 class WorkQueueWidget extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected static ?int $sort = 2;

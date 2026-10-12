@@ -5,7 +5,38 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int|null $user_id
+ * @property string $action
+ * @property string|null $auditable_type
+ * @property int|null $auditable_id
+ * @property array<array-key, mixed>|null $old_values
+ * @property array<array-key, mixed>|null $new_values
+ * @property string|null $ip
+ * @property string|null $user_agent
+ * @property Carbon $created_at
+ * @property-read Model|\Eloquent|null $auditable
+ * @property-read User|null $user
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereAction($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereAuditableId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereAuditableType($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereIp($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereNewValues($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereOldValues($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereUserAgent($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|AuditLog whereUserId($value)
+ *
+ * @mixin \Eloquent
+ */
 class AuditLog extends Model
 {
     public const UPDATED_AT = null;

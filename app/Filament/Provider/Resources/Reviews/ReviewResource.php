@@ -9,6 +9,7 @@ use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
 use App\Models\Review;
+use App\Notifications\SystemNotification;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Resource;
@@ -67,7 +68,7 @@ class ReviewResource extends Resource
                     ->color('warning')->sortable(),
                 TextColumn::make('comment')->label(__('provider.fields.comment'))->wrap()->limit(160)->placeholder('-')
                     ->description(fn (Review $r) => $r->user?->name),
-                TextColumn::make('venue.name_ar')->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
+                TextColumn::make('venue.name_ar')->visible(fn () => ProviderAccess::manyStores())->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
                 TextColumn::make('provider_reply')->label(__('provider.fields.provider_reply'))->wrap()->limit(120)
                     ->placeholder(__('provider.reviews.no_reply'))
                     ->description(fn (Review $r) => $r->replied_at?->diffForHumans()),
@@ -75,7 +76,7 @@ class ReviewResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('rating')->label(__('provider.fields.rating'))->options([5 => '5 ★', 4 => '4 ★', 3 => '3 ★', 2 => '2 ★', 1 => '1 ★']),
-                SelectFilter::make('venue_id')->label(__('provider.fields.venue'))
+                SelectFilter::make('venue_id')->visible(fn () => ProviderAccess::manyStores())->label(__('provider.fields.venue'))
                     ->options(fn () => ProviderAccess::provider()?->venues()->orderBy('name_ar')->pluck('name_ar', 'id') ?? []),
                 TernaryFilter::make('replied')->label(__('provider.reviews.replied'))
                     ->queries(
@@ -90,7 +91,12 @@ class ReviewResource extends Resource
                     ->fillForm(fn (Review $r) => ['reply' => $r->provider_reply])
                     ->schema([Textarea::make('reply')->label(__('provider.fields.provider_reply'))->required()->maxLength(2000)->rows(4)])
                     ->action(fn (Review $record, array $data) => Act::run(
-                        fn () => $record->update(['provider_reply' => $data['reply'], 'replied_at' => now()]),
+                        function () use ($record, $data) {
+                            $record->update(['provider_reply' => $data['reply'], 'replied_at' => now()]);
+                            if ($record->user) {
+                                SystemNotification::send($record->user, 'review_replied', ['venue' => $record->venue?->tr('name') ?? ''], ['review_id' => $record->id, 'venue_id' => $record->venue_id]);
+                            }
+                        },
                         __('api.reviews.replied'),
                     )),
             ]);

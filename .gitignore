@@ -21,6 +21,9 @@
 /public/hot
 /public/js/filament
 /public/storage
+/public/app
+/public/farah.apk
+/storage/framework/phpstan
 /storage/*.key
 /storage/pail
 /vendor

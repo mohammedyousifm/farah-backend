@@ -8,6 +8,7 @@ use App\Enums\OrderStatus;
 use App\Enums\ProviderType;
 use App\Enums\UserType;
 use App\Enums\VenueStatus;
+use App\Enums\WalletTransactionType;
 use App\Models\Activity;
 use App\Models\Booking;
 use App\Models\Category;
@@ -16,6 +17,7 @@ use App\Models\Complaint;
 use App\Models\HomeSection;
 use App\Models\Order;
 use App\Models\Provider;
+use App\Models\ProviderDocument;
 use App\Models\Review;
 use App\Models\Sector;
 use App\Models\SectorRequest;
@@ -30,12 +32,14 @@ use App\Services\ProviderService;
 use App\Services\RefundService;
 use App\Services\SettlementService;
 use App\Services\VenueService;
+use App\Services\WalletService;
 use App\Support\DocNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Realistic local demo data, created through the real services so the
@@ -113,9 +117,9 @@ class DemoSeeder extends Seeder
 
         SectorRequest::create([
             'provider_id' => $approved[3]->id,
-            'name_ar' => 'ألعاب الطاولة',
-            'name_en' => 'Board Games',
-            'description' => 'لدينا ركن لألعاب الطاولة والورق يُحجز بالساعة ونرغب بإضافته كنوع نشاط مستقل.',
+            'name_ar' => 'تزلج على الجليد',
+            'name_en' => 'Ice Skating',
+            'description' => 'لدينا صالة تزلج على الجليد تُحجز بالساعة ونرغب بإضافتها كنوع نشاط مستقل.',
         ]);
     }
 
@@ -205,17 +209,23 @@ class DemoSeeder extends Seeder
 
         // One provider = one store. The last two are still waiting: one sent its store with the request, one has not added it yet.
         $defs = [
-            ['شركة كيو للترفيه', 'Cue Entertainment Co.', ProviderType::Establishment, '1010456781', ['billiards'], 'Riyadh', 'green', 'approved'],
-            ['نادي سبين الرياضي', 'Spin Sports Club', ProviderType::Establishment, '1010733402', ['table-tennis', 'darts'], 'Riyadh', 'green', 'approved'],
-            ['مؤسسة سترايك للبولينج', 'Strike Bowling Est.', ProviderType::Establishment, '4030221453', ['bowling', 'billiards'], 'Jeddah', 'yellow', 'approved'],
-            ['بيكسل قيمنق', 'Pixel Gaming', ProviderType::Individual, null, ['gaming'], 'Riyadh', 'green', 'approved'],
-            ['مؤسسة لغز للترفيه', 'Loghz Entertainment Est.', ProviderType::Establishment, '2051334706', ['experiences'], 'Khobar', 'green', 'approved'],
-            ['شركة أبكس للكارتنج', 'Apex Karting Co.', ProviderType::Establishment, '2050778812', ['go-kart'], 'Dammam', 'green', 'approved'],
-            ['ملاعب أبكس الرياضية', 'Apex Courts Co.', ProviderType::Establishment, '4030665129', ['sports-courts'], 'Jeddah', 'green', 'approved'],
-            ['مؤسسة سترايك مكة', 'Strike Makkah Est.', ProviderType::Establishment, '4031220984', ['bowling'], 'Makkah', 'green', 'approved'],
-            ['كيو لاونج النخيل', 'Cue Lounge Al Nakheel', ProviderType::Establishment, '1010998455', ['billiards', 'darts'], 'Riyadh', null, 'pending'],
+            ['شركة العليا للترفيه', 'Al Olaya Entertainment Co.', ProviderType::Establishment, '1010456781', ['billiards'], 'Riyadh', 'green', 'approved'],
+            ['مؤسسة ديوانية الملقا', 'Diwaniyat Al Malqa Est.', ProviderType::Establishment, '1010733402', ['majlis-games', 'table-tennis'], 'Riyadh', 'green', 'approved'],
+            ['مؤسسة الكورنيش للبولينج', 'Corniche Bowling Est.', ProviderType::Establishment, '4030221453', ['bowling', 'billiards'], 'Jeddah', 'yellow', 'approved'],
+            ['قيمرز حطين', 'Hittin Gamers', ProviderType::Establishment, '1010918274', ['gaming'], 'Riyadh', 'green', 'approved'],
+            ['مؤسسة اللغز للترفيه', 'Al Loghz Entertainment Est.', ProviderType::Establishment, '2051334706', ['experiences'], 'Khobar', 'green', 'approved'],
+            ['شركة حلبة الشرقية', 'Sharqiyah Circuit Co.', ProviderType::Establishment, '2050778812', ['go-kart'], 'Dammam', 'green', 'approved'],
+            ['ملاعب الروضة الرياضية', 'Al Rawdah Sports Courts', ProviderType::Establishment, '4030665129', ['sports-courts'], 'Jeddah', 'green', 'approved'],
+            ['مؤسسة بولينج العوالي', 'Al Awali Bowling Est.', ProviderType::Establishment, '4031220984', ['bowling'], 'Makkah', 'green', 'approved'],
+            ['صالة النخيل للبلياردو', 'Al Nakheel Billiards Hall', ProviderType::Establishment, '1010998455', ['billiards', 'darts'], 'Riyadh', null, 'pending'],
             ['نادي الهدف للرماية', 'Hadaf Shooting Club', ProviderType::Establishment, '4030998877', ['shooting'], 'Jeddah', null, 'pending'],
         ];
+
+        // Demo documents share one image, kept on the private disk like real uploads.
+        $documents = Storage::disk(ProviderDocument::DISK);
+        if (! $documents->exists('demo/document.jpg')) {
+            $documents->put('demo/document.jpg', Storage::disk('public')->get('demo/cover-0.jpg'));
+        }
 
         $providers = [];
         foreach ($defs as $i => [$ar, $en, $type, $cr, $sectorSlugs, $cityName, $rating, $state]) {
@@ -237,8 +247,9 @@ class DemoSeeder extends Seeder
                 'phone' => $owner->phone,
                 'city_id' => $city($cityName),
                 'cr_number' => $cr,
-                'national_id' => $cr ? null : '10'.random_int(10000000, 99999999),
-                'vat_number' => $cr ? '3'.random_int(10000000000000, 99999999999999) : null,
+                'vat_number' => '3'.random_int(10000000000000, 99999999999999),
+                'maps_url' => 'https://maps.app.goo.gl/'.substr(md5($en), 0, 17),
+                'website' => $i % 2 === 0 ? 'https://'.Str::slug($en).'.sa' : null,
                 'bank_name' => 'مصرف الراجحي',
                 'iban' => 'SA'.random_int(10, 99).'8000000'.random_int(100000000, 999999999).'1234', // SA + 22 digits
                 'account_holder' => $ar,
@@ -247,9 +258,7 @@ class DemoSeeder extends Seeder
             ]);
 
             $isPending = $state === 'pending';
-            $docs = $cr
-                ? [[DocumentType::CommercialRegister, $cr, now()->addMonths($i === 2 ? 1 : 14)], [DocumentType::VatCertificate, null, null]]
-                : [[DocumentType::NationalId, $provider->national_id, now()->addYears(3)]];
+            $docs = [[DocumentType::CommercialRegister, $cr, now()->addMonths($i === 2 ? 1 : 14)], [DocumentType::VatCertificate, null, null]];
             $docs[] = [DocumentType::IbanLetter, null, null];
             if (array_intersect(['go-kart', 'shooting'], $sectorSlugs)) {
                 $docs[] = [DocumentType::License, 'LIC-'.random_int(10000, 99999), now()->addMonths(10)]; // karting / shooting need a licence
@@ -259,7 +268,7 @@ class DemoSeeder extends Seeder
                 $provider->documents()->create([
                     'type' => $docType,
                     'number' => $number,
-                    'file_path' => 'demo/cover-0.jpg',
+                    'file_path' => 'demo/document.jpg',
                     'issued_at' => now()->subYear(),
                     'expires_at' => $expires,
                     'status' => $isPending ? DocumentStatus::Pending : DocumentStatus::Approved,
@@ -290,7 +299,7 @@ class DemoSeeder extends Seeder
     {
         return [
             [
-                'provider' => 0, 'city' => 'Riyadh', 'name' => ['كيو لاونج للبلياردو والسنوكر', 'Cue Lounge Billiards & Snooker'],
+                'provider' => 0, 'city' => 'Riyadh', 'name' => ['صالة العليا للبلياردو والسنوكر', 'Al Olaya Billiards & Snooker Hall'],
                 'summary' => ['طاولات بلياردو وسنوكر احترافية وأجواء هادئة حتى بعد منتصف الليل.', 'Tournament pool and snooker tables in a relaxed lounge, open past midnight.'],
                 'address' => 'حي العليا، طريق الملك فهد، الرياض', 'audience' => 'men', 'min_age' => 16, 'policy' => 'flexible', 'featured' => true,
                 'photos' => ['billiards-1', 'billiards-2', 'billiards-3'],
@@ -301,18 +310,21 @@ class DemoSeeder extends Seeder
                 ],
             ],
             [
-                'provider' => 1, 'city' => 'Riyadh', 'name' => ['نادي سبين لتنس الطاولة والدارت', 'Spin Table Tennis & Darts Club'],
-                'summary' => ['طاولات تنس معتمدة ولوحات دارت إلكترونية، للتحديات السريعة مع الأصدقاء.', 'Competition tables and electronic dart boards for quick matches with friends.'],
-                'address' => 'حي الملقا، طريق أنس بن مالك، الرياض', 'audience' => 'all', 'min_age' => null, 'policy' => 'flexible', 'featured' => false,
-                'photos' => ['tabletennis-1', 'darts-1', 'tabletennis-2', 'darts-2'],
-                'hours' => ['15:00', '00:00'], 'days' => [5 => ['16:00', '01:00']],
+                'provider' => 1, 'city' => 'Riyadh', 'name' => ['ديوانية الملقا للبلوت والجاكارو', 'Diwaniyat Al Malqa Baloot & Jakaroo'],
+                'summary' => ['جلسات بلوت وجاكارو وكيرم وفرفيرة مع الشباب، بقهوة وشاي على حساب الديوانية.', 'Baloot, Jakaroo, carrom and foosball sessions with friends, coffee and tea on the house.'],
+                'address' => 'حي الملقا، طريق أنس بن مالك، الرياض', 'audience' => 'men', 'min_age' => null, 'policy' => 'flexible', 'featured' => true,
+                'photos' => ['baloot-1', 'carrom-1', 'foosball-1', 'baloot-2', 'carrom-2', 'foosball-2'],
+                'hours' => ['16:00', '02:00'], 'days' => [4 => ['16:00', '03:00'], 5 => ['16:00', '03:00']],
                 'activities' => [
-                    ['table-tennis', null, 'تنس الطاولة', 'Table tennis', 40, 30, 2, 6, 4, 'طاولة', 'Table', 6],
-                    ['darts', null, 'دارت', 'Darts', 30, 30, 2, 6, 6, 'لوحة', 'Board', 4],
+                    ['table-tennis', null, 'تنس الطاولة', 'Table tennis', 40, 30, 2, 6, 4, 'طاولة', 'Table', 4],
+                    ['majlis-games', 'baloot', 'بلوت', 'Baloot', 30, 60, 1, 4, 4, 'جلسة', 'Table', 8],
+                    ['majlis-games', 'jakaroo', 'جاكارو', 'Jakaroo', 30, 60, 1, 4, 4, 'طاولة جاكارو', 'Jakaroo table', 6],
+                    ['majlis-games', 'carrom', 'كيرم', 'Carrom', 25, 30, 2, 6, 4, 'طاولة كيرم', 'Carrom board', 4],
+                    ['majlis-games', 'foosball', 'فرفيرة', 'Foosball', 30, 30, 2, 6, 4, 'طاولة فرفيرة', 'Foosball table', 3],
                 ],
             ],
             [
-                'provider' => 2, 'city' => 'Jeddah', 'name' => ['سترايك بولينج', 'Strike Bowling Centre'],
+                'provider' => 2, 'city' => 'Jeddah', 'name' => ['بولينج الكورنيش', 'Corniche Bowling Centre'],
                 'summary' => ['ستة مسارات بولينج بإضاءة ليلية وشاشات تسجيل تلقائي، مناسبة للعائلات.', 'Six glow-in-the-dark lanes with automatic scoring, family friendly.'],
                 'address' => 'حي الشاطئ، طريق الكورنيش، جدة', 'audience' => 'families', 'min_age' => null, 'policy' => 'moderate', 'featured' => true,
                 'photos' => ['bowling-1', 'bowling-2', 'bowling-3'],
@@ -323,7 +335,7 @@ class DemoSeeder extends Seeder
                 ],
             ],
             [
-                'provider' => 3, 'city' => 'Riyadh', 'name' => ['بيكسل قيمنق لاونج', 'Pixel Gaming Lounge'],
+                'provider' => 3, 'city' => 'Riyadh', 'name' => ['قيمرز حطين', 'Hittin Gamers Lounge'],
                 'summary' => ['غرف بلايستيشن 5 خاصة ومحطات PC بكروت RTX وشاشات 240 هرتز.', 'Private PlayStation 5 rooms and RTX gaming PCs with 240 Hz screens.'],
                 'address' => 'حي حطين، طريق الأمير تركي الأول، الرياض', 'audience' => 'all', 'min_age' => 12, 'policy' => 'flexible', 'featured' => true,
                 'photos' => ['gaming-1', 'gaming-2', 'gaming-3'],
@@ -335,7 +347,7 @@ class DemoSeeder extends Seeder
                 ],
             ],
             [
-                'provider' => 4, 'city' => 'Khobar', 'name' => ['لغز لغرف الهروب', 'Loghz Escape Rooms'],
+                'provider' => 4, 'city' => 'Khobar', 'name' => ['اللغز لغرف الهروب', 'Al Loghz Escape Rooms'],
                 'summary' => ['أربع غرف هروب بقصص مختلفة ومستويات صعوبة متدرجة لفرق من 2 إلى 6.', 'Four story-driven escape rooms for teams of 2 to 6, from easy to expert.'],
                 'address' => 'حي اليرموك، طريق الملك سلمان، الخبر', 'audience' => 'all', 'min_age' => 10, 'policy' => 'moderate', 'featured' => false,
                 'photos' => ['escape-1', 'escape-2', 'escape-3'],
@@ -345,7 +357,7 @@ class DemoSeeder extends Seeder
                 ],
             ],
             [
-                'provider' => 5, 'city' => 'Dammam', 'name' => ['حلبة أبكس للكارتنج', 'Apex Karting Track'],
+                'provider' => 5, 'city' => 'Dammam', 'name' => ['حلبة الشرقية للكارتنج', 'Sharqiyah Karting Circuit'],
                 'summary' => ['حلبة خارجية بطول 900 متر وسيارات كارت 270cc مع توقيت إلكتروني لكل لفة.', 'A 900 m outdoor circuit with 270cc karts and electronic lap timing.'],
                 'address' => 'حي الشاطئ الغربي، طريق الخليج، الدمام', 'audience' => 'all', 'min_age' => 14, 'policy' => 'strict', 'featured' => true,
                 'photos' => ['karting-1', 'karting-2', 'karting-3'],
@@ -355,10 +367,10 @@ class DemoSeeder extends Seeder
                 ],
             ],
             [
-                'provider' => 6, 'city' => 'Jeddah', 'name' => ['ملاعب أبكس للبادل وكرة القدم', 'Apex Padel & Football Courts'],
+                'provider' => 6, 'city' => 'Jeddah', 'name' => ['ملاعب الروضة للبادل وكرة القدم', 'Al Rawdah Padel & Football Courts'],
                 'summary' => ['ملاعب بادل زجاجية وملاعب خماسية بعشب صناعي وإضاءة ليلية.', 'Glass padel courts and five-a-side pitches with artificial turf and floodlights.'],
                 'address' => 'حي الروضة، شارع الأمير سلطان، جدة', 'audience' => 'all', 'min_age' => null, 'policy' => 'moderate', 'featured' => false,
-                'photos' => ['courts-1', 'courts-2', 'courts-3'],
+                'photos' => ['padel-1', 'football-1', 'padel-2', 'football-2', 'courts-1'],
                 'hours' => ['06:00', '02:00'], 'days' => [5 => ['15:00', '02:00']],
                 'activities' => [
                     ['sports-courts', 'padel', 'بادل', 'Padel', 180, 60, 1, 3, 4, 'ملعب', 'Court', 3],
@@ -568,7 +580,7 @@ class DemoSeeder extends Seeder
     private function otherVenues(array $approved, array $pending, array $images): void
     {
         $this->venue($approved[7], [
-            'city' => 'Makkah', 'name' => ['سترايك بولينج مكة', 'Strike Bowling Makkah'],
+            'city' => 'Makkah', 'name' => ['بولينج العوالي', 'Al Awali Bowling'],
             'summary' => ['ثمانية مسارات بولينج، الافتتاح قريباً.', 'Eight bowling lanes, opening soon.'],
             'address' => 'حي العوالي، طريق الملك عبدالله، مكة المكرمة', 'audience' => 'families', 'min_age' => null, 'policy' => 'moderate', 'featured' => false,
             'photos' => ['bowling-4', 'bowling-5'],
@@ -577,7 +589,7 @@ class DemoSeeder extends Seeder
         ], 8, $images, publish: false);
 
         $review = $this->venue($pending[0], [
-            'city' => 'Riyadh', 'name' => ['كيو لاونج النخيل', 'Cue Lounge Al Nakheel'],
+            'city' => 'Riyadh', 'name' => ['صالة النخيل للبلياردو', 'Al Nakheel Billiards Hall'],
             'summary' => ['ست طاولات بلياردو وركن دارت.', 'Six pool tables and a darts corner.'],
             'address' => 'حي النخيل، طريق الإمام سعود، الرياض', 'audience' => 'men', 'min_age' => 16, 'policy' => 'flexible', 'featured' => false,
             'photos' => ['billiards-4', 'billiards-5'],
@@ -604,6 +616,10 @@ class DemoSeeder extends Seeder
             'priority' => 'normal',
         ]);
         $complaint->replies()->create(['user_id' => $this->admin->id, 'body' => 'نعتذر عن ذلك، تم التواصل مع المكان وسنوافيك بالنتيجة خلال يوم عمل.']);
+
+        // Farah wallet: compensation for that complaint, and a reward for a regular customer.
+        app(WalletService::class)->grant($complaint->user, 30, WalletTransactionType::Compensation, 'تعويض عن تأخير تسليم الطاولة', $this->admin, $complaint);
+        app(WalletService::class)->grant($this->customers[0], 25, WalletTransactionType::Reward, 'مكافأة الحجز الخامس', $this->admin);
 
         Complaint::create([
             'number' => DocNumber::make('CMP', 'complaints'),
@@ -701,7 +717,7 @@ class DemoSeeder extends Seeder
             'sort_order' => 3,
         ]);
 
-        HomeSection::create(['title_ar' => 'وش ودك تلعب؟', 'title_en' => 'What do you want to play?', 'type' => 'sectors', 'layout' => 'carousel', 'source' => 'latest', 'sort_order' => 1]);
+        HomeSection::create(['title_ar' => 'الأنشطة', 'title_en' => 'Activities', 'type' => 'sectors', 'layout' => 'carousel', 'source' => 'latest', 'sort_order' => 1]);
         HomeSection::create(['title_ar' => 'مقترحة لك', 'title_en' => 'Recommended for you', 'type' => 'venues', 'layout' => 'carousel', 'source' => 'recommended', 'sort_order' => 2]);
         HomeSection::create(['title_ar' => 'الأعلى تقييماً', 'title_en' => 'Top rated', 'type' => 'venues', 'layout' => 'grid', 'source' => 'top_rated', 'sort_order' => 3]);
         HomeSection::create(['title_ar' => 'أماكن مميزة', 'title_en' => 'Featured venues', 'type' => 'venues', 'layout' => 'carousel', 'source' => 'featured', 'sort_order' => 4]);

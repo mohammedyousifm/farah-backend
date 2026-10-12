@@ -2,16 +2,15 @@
 
 namespace App\Filament\Provider\Pages;
 
-use App\Exceptions\BusinessException;
 use App\Filament\Provider\ProviderNavGroup;
-use App\Filament\Provider\Resources\Bookings\BookingResource;
 use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
-use App\Filament\Support\Fmt;
 use App\Models\Venue;
 use App\Services\AvailabilityService;
-use App\Services\CheckInService;
+use App\Support\PhoneScanner;
+use chillerlan\QRCode\QRCode;
 use Filament\Pages\Page;
+use Livewire\Attributes\Locked;
 
 /** Arrival check-in: type or scan a booking code (same rules as the provider API). */
 class CheckIn extends Page
@@ -36,6 +35,21 @@ class CheckIn extends Page
     /** Last few results on this screen (newest first), so counter staff can glance back. */
     public array $recent = [];
 
+    /** Set while a phone is linked as this screen's scanner (see PhoneScanner). */
+    #[Locked]
+    public ?string $phoneToken = null;
+
+    public function mount(): void
+    {
+        // Coming back to the page keeps the phone that is already linked.
+        $token = session('farah.phone_scan');
+        $link = PhoneScanner::find($token);
+
+        if ($link && $link['provider_id'] === ProviderAccess::provider()?->id && $link['user_id'] === auth()->id()) {
+            $this->phoneToken = $token;
+        }
+    }
+
     public static function canAccess(): bool
     {
         return ProviderAccess::canManage('checkin', 'bookings.checkin');
@@ -59,7 +73,7 @@ class CheckIn extends Page
             ->all();
     }
 
-    public function checkIn(CheckInService $service): void
+    public function checkIn(): void
     {
         abort_unless(static::canAccess(), 403);
 
@@ -71,24 +85,79 @@ class CheckIn extends Page
             $venueId = null;
         }
 
-        try {
-            $booking = $service->checkIn(ProviderAccess::provider(), $this->code, $venueId, auth()->user());
+        $this->show(PhoneScanner::attempt(ProviderAccess::provider(), $this->code, $venueId, auth()->user()));
 
-            $this->result = [
-                'ok' => true,
-                'message' => __('provider.checkin.success'),
-                'code' => $booking->code,
-                'activity' => $booking->activity ? Fmt::tr($booking->activity, 'name') : $booking->name,
-                'resource' => $booking->resource ? Fmt::tr($booking->resource, 'name') : null,
-                'venue' => $booking->venue ? VenueResource::title($booking->venue) : null,
-                'window' => BookingResource::window($booking),
-                'customer' => $booking->order->customerDisplayName(),
-                'order' => $booking->order->number,
-                'time' => $booking->checked_in_at?->timezone(AvailabilityService::timezone())->format('Y-m-d H:i'),
-            ];
-        } catch (BusinessException $e) {
-            $this->result = ['ok' => false, 'message' => $e->getMessage(), 'code' => strtoupper(trim($this->code))];
+        $this->code = '';
+    }
+
+    /** Opens the phone link: the QR shown next lets a phone scan for this screen. */
+    public function connectPhone(): void
+    {
+        abort_unless(static::canAccess(), 403);
+
+        PhoneScanner::disconnect($this->phoneToken);
+
+        $venueId = $this->venueId ? (int) $this->venueId : null;
+        if ($venueId && ! ProviderAccess::provider()->venues()->whereKey($venueId)->exists()) {
+            $venueId = null;
         }
+
+        $this->phoneToken = PhoneScanner::connect(ProviderAccess::provider(), auth()->user(), $venueId);
+        session(['farah.phone_scan' => $this->phoneToken]);
+    }
+
+    public function disconnectPhone(): void
+    {
+        PhoneScanner::disconnect($this->phoneToken);
+        $this->phoneToken = null;
+        session()->forget('farah.phone_scan');
+    }
+
+    /** Called every two seconds while a phone link is open: shows what the phone scanned. */
+    public function pollPhone(): void
+    {
+        if (! $this->phoneToken) {
+            return;
+        }
+
+        if (PhoneScanner::find($this->phoneToken) === null) {
+            $this->disconnectPhone();
+
+            return;
+        }
+
+        foreach (PhoneScanner::pull($this->phoneToken) as $result) {
+            $this->show($result);
+        }
+    }
+
+    public function phoneUrl(): ?string
+    {
+        if (! $this->phoneToken) {
+            return null;
+        }
+
+        // A computer opened as "localhost" would hand the phone an address it cannot reach.
+        return in_array(request()->getHost(), ['localhost', '127.0.0.1'], true)
+            ? rtrim((string) config('app.url'), '/').route('provider.phone-scan', $this->phoneToken, false)
+            : route('provider.phone-scan', $this->phoneToken);
+    }
+
+    /** The link as a QR image (SVG data URI) for the phone's camera. */
+    public function phoneQr(): ?string
+    {
+        return $this->phoneToken ? (new QRCode)->render($this->phoneUrl()) : null;
+    }
+
+    public function phoneOnline(): bool
+    {
+        return $this->phoneToken !== null && PhoneScanner::phoneSeenRecently($this->phoneToken);
+    }
+
+    /** Puts one result on the screen and at the top of the recent list. */
+    private function show(array $result): void
+    {
+        $this->result = $result;
 
         array_unshift($this->recent, [
             'ok' => $this->result['ok'],
@@ -98,7 +167,6 @@ class CheckIn extends Page
         ]);
         $this->recent = array_slice($this->recent, 0, 5);
 
-        $this->code = '';
         $this->dispatch('farah-checkin-done', ok: $this->result['ok']);
     }
 }

@@ -1,0 +1,31 @@
+<?php
+
+// The customer's invoice for a paid order (PDF).
+return [
+    'tax_title' => 'Simplified tax invoice',
+    'plain_title' => 'Invoice',
+    'number' => 'Invoice number',
+    'issued_at' => 'Issued on',
+    'order_number' => 'Order number',
+    'seller' => 'Seller',
+    'buyer' => 'Customer',
+    'vat_number' => 'VAT number',
+    'cr_number' => 'Commercial registration',
+    'description' => 'Description',
+    'time' => 'Time',
+    'quantity' => 'Qty',
+    'unit_price' => 'Unit price',
+    'line_total' => 'Total',
+    'line_total_with_vat' => 'Total incl. VAT',
+    'discount' => 'Discount',
+    'net' => 'Total excl. VAT',
+    'vat' => 'VAT (:rate%)',
+    'total' => 'Total',
+    'total_with_vat' => 'Total incl. VAT',
+    'refunded' => 'Refunded',
+    'sar' => 'SAR',
+    'qr_hint' => 'Scan to check the invoice details',
+    'not_registered' => 'The seller is not registered for VAT, so this invoice carries no VAT.',
+    'footer' => 'Issued electronically through Farah on behalf of the seller',
+    'not_available' => 'This order has no invoice until it is paid.',
+];

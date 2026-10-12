@@ -4,7 +4,34 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $provider_id
+ * @property int $user_id
+ * @property string $role
+ * @property array<array-key, mixed>|null $permissions
+ * @property bool $is_active
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Provider|null $provider
+ * @property-read User|null $user
+ *
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereIsActive($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember wherePermissions($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereProviderId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereRole($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|ProviderMember whereUserId($value)
+ *
+ * @mixin \Eloquent
+ */
 class ProviderMember extends Model
 {
     /** Sub-permissions a provider owner/manager can grant to staff. */

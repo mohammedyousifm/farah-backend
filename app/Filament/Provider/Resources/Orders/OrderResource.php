@@ -13,6 +13,7 @@ use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Fmt;
 use App\Models\Order;
+use App\Support\Like;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
@@ -125,15 +126,15 @@ class OrderResource extends Resource
             ->emptyStateDescription(__('provider.orders.empty_hint'))
             ->columns([
                 TextColumn::make('number')->label(__('provider.fields.number'))->searchable()->weight('bold')->copyable(),
-                TextColumn::make('venue.name_ar')->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
+                TextColumn::make('venue.name_ar')->visible(fn () => ProviderAccess::manyStores())->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
                 TextColumn::make('bookings_count')->label(__('provider.fields.bookings'))->numeric()->toggleable(),
                 TextColumn::make('customer')->label(__('provider.fields.customer'))
                     ->state(fn (Order $r) => $r->customerDisplayName())
                     ->description(fn (Order $r) => Fmt::phone($r->user?->phone ?? $r->customer_phone))
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn ($w) => $w
-                        ->where('customer_name', 'like', "%{$search}%")
-                        ->orWhere('customer_phone', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")))),
+                        ->where('customer_name', 'like', Like::contains($search))
+                        ->orWhere('customer_phone', 'like', Like::contains($search))
+                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', Like::contains($search))->orWhere('phone', 'like', Like::contains($search))))),
                 TextColumn::make('channel')->label(__('provider.fields.channel'))->badge()->color('gray')
                     ->formatStateUsing(fn ($state) => __("provider.orders.channels.{$state}")),
                 TextColumn::make('total')->label(__('provider.fields.total'))->formatStateUsing(static::money())->sortable(),
@@ -144,7 +145,7 @@ class OrderResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')->label(__('provider.fields.status'))->options(OrderStatus::class)->multiple(),
-                SelectFilter::make('venue_id')->label(__('provider.fields.venue'))
+                SelectFilter::make('venue_id')->visible(fn () => ProviderAccess::manyStores())->label(__('provider.fields.venue'))
                     ->options(fn () => ProviderAccess::provider()?->venues()->orderBy('name_ar')->pluck('name_ar', 'id') ?? [])->searchable(),
                 SelectFilter::make('channel')->label(__('provider.fields.channel'))
                     ->options(['online' => __('provider.orders.channels.online'), 'offline' => __('provider.orders.channels.offline')]),

@@ -7,6 +7,7 @@ use App\Http\Requests\Api\Provider\VenueHoursRequest;
 use App\Http\Requests\Api\Provider\VenueRequest;
 use App\Http\Resources\VenueResource;
 use App\Services\VenueService;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -20,7 +21,7 @@ class VenueController extends ProviderController
         $venues = $this->provider($request)->venues()
             ->with(VenueResource::RELATIONS)
             ->when($request->status, fn ($q, $s) => $q->whereIn('status', explode(',', $s)))
-            ->when($request->q, fn ($q, $term) => $q->where(fn ($w) => $w->where('name_ar', 'like', "%{$term}%")->orWhere('name_en', 'like', "%{$term}%")))
+            ->when($request->q, fn ($q, $term) => $q->where(fn ($w) => $w->where('name_ar', 'like', Like::contains($term))->orWhere('name_en', 'like', Like::contains($term))))
             ->latest()
             ->paginate(min($request->integer('per_page', 20) ?: 20, 50));
 

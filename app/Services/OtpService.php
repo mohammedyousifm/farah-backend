@@ -42,7 +42,8 @@ class OtpService
             throw new BusinessException(__('api.otp.too_soon', ['seconds' => $wait]), 'otp_throttled', 429);
         }
 
-        $code = (string) random_int(1000, 9999);
+        $length = max(4, (int) config('farah.otp.length', 6));
+        $code = (string) random_int(10 ** ($length - 1), 10 ** $length - 1);
 
         $otp = OtpCode::create([
             'identifier' => $identifier,
@@ -55,11 +56,12 @@ class OtpService
 
         $message = __('api.otp.message', ['code' => $code]);
 
-        if ($channel === 'sms') {
-            $this->sms->send($identifier, $message);
-        } else {
-            Mail::raw($message, fn ($m) => $m->to($identifier)->subject(__('api.otp.subject')));
-        }
+        // Sent after the reply has gone out, so a slow SMS or mail service never holds up the screen.
+        $subject = __('api.otp.subject');
+        $sms = $this->sms;
+        defer(fn () => $channel === 'sms'
+            ? $sms->send($identifier, $message)
+            : Mail::raw($message, fn ($m) => $m->to($identifier)->subject($subject)));
 
         return $otp;
     }

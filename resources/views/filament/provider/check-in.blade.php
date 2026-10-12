@@ -23,6 +23,28 @@
                     <p x-show="error" x-cloak class="farah-checkin-error">{{ __('provider.checkin.camera_error') }}</p>
                 </div>
 
+                {{-- A phone as the scanner: better camera than most laptops. The phone opens the link in the QR. --}}
+                <div class="farah-checkin-phone">
+                    @if ($this->phoneToken)
+                        <div class="farah-checkin-phone-box" wire:poll.2s="pollPhone">
+                            <img src="{{ $this->phoneQr() }}" alt="" class="farah-checkin-phone-qr">
+                            <div class="farah-checkin-phone-text">
+                                <strong>{{ __('provider.checkin.phone_scan_me') }}</strong>
+                                <span @class(['farah-checkin-phone-state', 'is-on' => $this->phoneOnline()])>
+                                    {{ $this->phoneOnline() ? __('provider.checkin.phone_connected') : __('provider.checkin.phone_waiting') }}
+                                </span>
+                                <span class="farah-checkin-phone-note">{{ __('provider.checkin.phone_note') }}</span>
+                                <button type="button" class="farah-checkin-camera-stop" wire:click="disconnectPhone">{{ __('provider.checkin.phone_disconnect') }}</button>
+                            </div>
+                        </div>
+                    @else
+                        <button type="button" class="farah-checkin-phone-btn" wire:click="connectPhone" wire:loading.attr="disabled" wire:target="connectPhone">
+                            <x-filament::icon icon="heroicon-o-device-phone-mobile" class="farah-checkin-camera-icon" />
+                            <span>{{ __('provider.checkin.phone_connect') }}</span>
+                        </button>
+                    @endif
+                </div>
+
                 <label class="farah-checkin-label" for="farah-checkin-code">{{ __('provider.checkin.code') }}</label>
                 <input
                     id="farah-checkin-code"
@@ -42,13 +64,16 @@
                     <p class="farah-checkin-error">{{ $message }}</p>
                 @enderror
 
-                <label class="farah-checkin-label" for="farah-checkin-venue">{{ __('provider.checkin.venue') }}</label>
-                <select id="farah-checkin-venue" wire:model="venueId" class="farah-checkin-select">
-                    <option value="">{{ __('provider.checkin.any_venue') }}</option>
-                    @foreach ($this->getVenueOptions() as $id => $label)
-                        <option value="{{ $id }}">{{ $label }}</option>
-                    @endforeach
-                </select>
+                {{-- A provider has one store: the "which place?" question only appears if there is ever more than one. --}}
+                @if (count($this->getVenueOptions()) > 1)
+                    <label class="farah-checkin-label" for="farah-checkin-venue">{{ __('provider.checkin.venue') }}</label>
+                    <select id="farah-checkin-venue" wire:model="venueId" class="farah-checkin-select">
+                        <option value="">{{ __('provider.checkin.any_venue') }}</option>
+                        @foreach ($this->getVenueOptions() as $id => $label)
+                            <option value="{{ $id }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                @endif
 
                 <x-filament::button type="submit" size="xl" icon="heroicon-o-check-badge" class="farah-checkin-btn" wire:loading.attr="disabled" wire:target="checkIn">
                     {{ __('provider.checkin.submit') }}
@@ -230,6 +255,18 @@
         }
         .farah-checkin-camera-btn:disabled { opacity: .7; }
         .farah-checkin-camera-icon { width: 1.5rem; height: 1.5rem; }
+        .farah-checkin-phone-btn {
+            display: flex; align-items: center; justify-content: center; gap: .6rem; width: 100%;
+            padding: .85rem; border-radius: .9rem; font-weight: 700; border: 1.5px solid var(--primary-600); color: var(--primary-600);
+        }
+        .farah-checkin-phone-btn:disabled { opacity: .6; }
+        .farah-checkin-phone-box { display: flex; gap: 1rem; align-items: center; padding: 1rem; border-radius: .9rem; border: 1.5px dashed rgba(127,127,127,.45); }
+        .farah-checkin-phone-qr { width: 11rem; height: 11rem; flex-shrink: 0; background: #fff; border-radius: .6rem; padding: .35rem; }
+        .farah-checkin-phone-text { display: grid; gap: .45rem; justify-items: start; min-width: 0; }
+        .farah-checkin-phone-state { font-size: .85rem; font-weight: 700; padding: .2rem .7rem; border-radius: 999px; background: rgba(127,127,127,.15); }
+        .farah-checkin-phone-state.is-on { background: #0F7B55; color: #fff; }
+        .farah-checkin-phone-note { font-size: .8rem; opacity: .7; }
+        @media (max-width: 640px) { .farah-checkin-phone-box { flex-direction: column; text-align: center; } .farah-checkin-phone-text { justify-items: center; } }
         .farah-checkin-reader-wrap { display: grid; gap: .5rem; }
         .farah-checkin-reader { width: 100%; border-radius: .9rem; overflow: hidden; background: #000; min-height: 12rem; }
         .farah-checkin-reader video { width: 100% !important; height: auto !important; object-fit: cover; }

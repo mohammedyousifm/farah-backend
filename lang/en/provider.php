@@ -39,6 +39,8 @@ return [
         'bank' => 'Bank account (optional for now)',
         'sectors_hint' => 'Pick the activity types your venue offers (billiards, bowling, gaming...). Our team reviews them.',
         'phone_taken' => 'This mobile number is already registered.',
+        'maps_url_hint' => 'Open Google Maps, pick your place, tap Share, then copy the link and paste it here.',
+        'website_optional' => 'Website (optional)',
     ],
 
     'banner' => [
@@ -99,6 +101,8 @@ return [
     'dashboard' => [
         'title' => 'Dashboard',
         'venues' => 'Venues',
+        'today_schedule' => "Today's schedule",
+        'my_store' => 'My store',
         'bookings_today' => 'Bookings today',
         'bookings_upcoming' => ':count upcoming',
         'orders_month' => 'Orders this month',
@@ -338,6 +342,19 @@ return [
         'camera_loading' => 'Starting camera…',
         'recent' => 'Recent check-ins',
         'next' => 'Ready for the next booking',
+        'phone_connect' => 'Use your phone to scan',
+        'phone_scan_me' => 'Scan this code with your phone camera',
+        'phone_waiting' => 'Waiting for the phone…',
+        'phone_connected' => 'Phone connected',
+        'phone_note' => 'The scan page opens on the phone, and every code you scan appears here straight away. The link is yours: do not share it.',
+        'phone_disconnect' => 'Disconnect',
+        'phone_title' => 'Scan booking codes',
+        'phone_photo' => 'Take a photo of the code',
+        'phone_send' => 'Check',
+        'phone_hint' => 'Point the camera at the QR code in the customer\'s booking. The result shows here and on the computer screen.',
+        'phone_no_code' => 'We could not read the code. Please try again.',
+        'phone_offline' => 'Could not connect. Check the internet and try again.',
+        'phone_expired' => 'This link has ended. Open the check-in page on the computer and connect the phone again.',
     ],
 
     'team' => [
@@ -527,5 +544,6 @@ return [
         'venue_phone' => 'Venue phone',
         'views' => 'Views',
         'website' => 'Website',
+        'maps_url' => 'Google Maps link',
     ],
 ];

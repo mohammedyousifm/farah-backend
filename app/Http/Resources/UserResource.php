@@ -26,6 +26,7 @@ class UserResource extends JsonResource
             'gender' => $this->gender,
             'marketing_consent' => (bool) $this->marketing_consent,
             'tracking_consent' => (bool) $this->tracking_consent,
+            'wallet_balance' => round((float) $this->wallet_balance, 2),
             'phone_verified' => (bool) $this->phone_verified_at,
             'email_verified' => (bool) $this->email_verified_at,
             'providers' => $this->whenLoaded('providers', fn () => $this->providers

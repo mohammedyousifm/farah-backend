@@ -8,6 +8,8 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class SalesChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithPageFilters;
 
     protected static bool $isDiscovered = false;
@@ -24,6 +26,16 @@ class SalesChart extends ChartWidget
     protected function getType(): string
     {
         return 'line';
+    }
+
+    protected function getOptions(): array
+    {
+        $font = ['family' => 'Almarai', 'size' => 13];
+
+        return [
+            'plugins' => ['legend' => ['labels' => ['font' => $font, 'usePointStyle' => true, 'padding' => 16]]],
+            'scales' => ['x' => ['ticks' => ['font' => $font, 'maxTicksLimit' => 10]], 'y' => ['ticks' => ['font' => $font]]],
+        ];
     }
 
     protected function getData(): array

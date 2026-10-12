@@ -10,6 +10,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class KpiStatsWidget extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithPageFilters;
 
     protected static bool $isDiscovered = false;

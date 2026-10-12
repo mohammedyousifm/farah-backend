@@ -2,10 +2,15 @@
 
 namespace App\Http\Resources;
 
+use App\Models\ProviderMember;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** Provider team member. @mixin \App\Models\ProviderMember */
+/**
+ * Provider team member.
+ *
+ * @mixin ProviderMember
+ */
 class MemberResource extends JsonResource
 {
     public function toArray(Request $request): array

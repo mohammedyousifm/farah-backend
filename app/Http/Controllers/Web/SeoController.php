@@ -3,11 +3,29 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use Illuminate\Http\Response;
 
 /** robots.txt and sitemap.xml for the public website. */
 class SeoController extends Controller
 {
+    /** Where to report a security problem (RFC 9116). The address is the support e-mail from Settings. */
+    public function security(): Response
+    {
+        $email = Setting::get('support_email');
+        abort_if(blank($email), 404);
+
+        $lines = [
+            'Contact: mailto:'.$email,
+            'Expires: '.now()->addYear()->startOfDay()->toIso8601ZuluString(),
+            'Preferred-Languages: ar, en',
+            'Canonical: '.url('/.well-known/security.txt'),
+            '',
+        ];
+
+        return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    }
+
     public function robots(): Response
     {
         $lines = [
@@ -16,6 +34,7 @@ class SeoController extends Controller
             'Disallow: /provider',
             'Disallow: /api/',
             'Disallow: /payments/',
+            'Disallow: /scan/',
             'Disallow: /admin-locale/',
             '',
             'Sitemap: '.url('/sitemap.xml'),

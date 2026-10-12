@@ -231,6 +231,7 @@ class RefundServiceTest extends ServiceTestCase
     public function test_gateway_failure_marks_the_refund_failed_and_releases_the_amount(): void
     {
         $order = $this->paidOrder($this->venue($this->provider()), 2);
+        $order->user->delete(); // no account, so no wallet: the refund goes back through the gateway
         $admin = $this->admin();
 
         $this->failingRefunds();

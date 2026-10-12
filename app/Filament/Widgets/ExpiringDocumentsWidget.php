@@ -12,6 +12,8 @@ use Filament\Widgets\TableWidget;
 
 class ExpiringDocumentsWidget extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected static ?int $sort = 6;

@@ -29,12 +29,14 @@ use App\Filament\Resources\RecommendationRules\RecommendationRuleResource;
 use App\Filament\Resources\Refunds\Pages\ListRefunds;
 use App\Filament\Resources\Refunds\RefundResource;
 use App\Filament\Resources\Reviews\Pages\ManageReviews;
+use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Filament\Resources\Venues\Pages\ListVenues;
 use App\Filament\Resources\Venues\Pages\ViewVenue;
 use App\Filament\Resources\Venues\RelationManagers\ActivitiesRelationManager;
 use App\Filament\Resources\Venues\RelationManagers\BookingsRelationManager;
 use App\Filament\Resources\Venues\RelationManagers\OrdersRelationManager as VenueOrdersRelationManager;
 use App\Filament\Resources\Venues\VenueResource;
+use App\Filament\Resources\Wallet\Pages\ListWalletTransactions;
 use App\Filament\Support\Fmt;
 use App\Filament\Widgets\KpiStatsWidget;
 use App\Filament\Widgets\LatestOrdersWidget;
@@ -48,6 +50,7 @@ use App\Models\Review;
 use App\Models\Sector;
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use App\Services\KpiService;
 use App\Services\OrderService;
 use App\Services\ReportService;
@@ -485,6 +488,36 @@ class AdminWorkflowTest extends AdminTestCase
             ->callAction('close')
             ->assertHasNoActionErrors();
         $this->assertSame(ComplaintStatus::Closed, $complaint->fresh()->status);
+    }
+
+    public function test_compensation_and_rewards_go_to_the_customer_wallet(): void
+    {
+        // From the complaint: compensation, linked to the complaint and its order.
+        Livewire::test(ViewComplaint::class, ['record' => $this->complaint->getRouteKey()])
+            ->callAction('compensate', ['amount' => 40, 'note' => 'Sorry for the late start'])
+            ->assertHasNoActionErrors();
+
+        // From the wallet page: a reward for a customer picked by name or phone.
+        Livewire::test(ListWalletTransactions::class)
+            ->callAction('wallet_grant', ['user_id' => $this->buyer->id, 'type' => 'reward', 'amount' => 10, 'note' => 'Fifth booking'])
+            ->assertHasNoActionErrors();
+
+        // From the customer's page.
+        Livewire::test(ViewUser::class, ['record' => $this->buyer->getRouteKey()])
+            ->callAction('wallet_grant', ['type' => 'compensation', 'amount' => 5, 'note' => 'Goodwill'])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(55.0, $this->buyer->fresh()->wallet_balance);
+        $first = WalletTransaction::orderBy('id')->firstOrFail();
+        $this->assertSame([$this->complaint->id, $this->order->id, $this->admin->id], [$first->complaint_id, $first->order_id, $first->created_by]);
+
+        Livewire::test(ListWalletTransactions::class)->assertSee('Sara Buyer')->assertSee('Fifth booking');
+
+        // More than the limit is refused by the form.
+        Livewire::test(ListWalletTransactions::class)
+            ->callAction('wallet_grant', ['user_id' => $this->buyer->id, 'type' => 'reward', 'amount' => 999999, 'note' => 'Too much'])
+            ->assertHasActionErrors(['amount']);
+        $this->assertSame(55.0, $this->buyer->fresh()->wallet_balance);
     }
 
     public function test_review_moderation_goes_through_the_service(): void

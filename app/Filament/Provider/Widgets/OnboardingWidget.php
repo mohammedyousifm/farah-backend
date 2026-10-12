@@ -5,7 +5,6 @@ namespace App\Filament\Provider\Widgets;
 use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
-use App\Enums\ProviderType;
 use App\Enums\RequestStatus;
 use App\Enums\VenueStatus;
 use App\Filament\Provider\Pages\EditProviderProfile;
@@ -39,9 +38,7 @@ class OnboardingWidget extends Widget
     /** Documents we expect for each provider type (others are optional). */
     public static function requiredDocuments(Provider $provider): array
     {
-        return $provider->type === ProviderType::Individual
-            ? [DocumentType::NationalId, DocumentType::IbanLetter]
-            : [DocumentType::CommercialRegister, DocumentType::IbanLetter];
+        return [DocumentType::CommercialRegister, DocumentType::IbanLetter];
     }
 
     /** Profile fields still empty, as translated labels. */
@@ -54,8 +51,9 @@ class OnboardingWidget extends Widget
             'bank_name' => 'bank_name',
             'account_holder' => 'account_holder',
             'iban' => 'iban',
+            'cr_number' => 'cr_number',
+            'maps_url' => 'maps_url',
         ];
-        $fields += $provider->type === ProviderType::Individual ? ['national_id' => 'national_id'] : ['cr_number' => 'cr_number'];
 
         return collect($fields)
             ->filter(fn (string $label, string $attribute) => blank($provider->getAttribute($attribute)))

@@ -15,6 +15,8 @@ use App\Models\SectorRequest;
 use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\SystemNotification;
+use App\Support\AdminNotifier;
+use App\Support\Once;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -43,6 +45,7 @@ class ProviderService
             $provider->sectors()->sync(collect($sectorIds)->mapWithKeys(fn ($id) => [$id => ['status' => 'pending']])->all());
 
             $owner->update(['type' => UserType::Provider]);
+            AdminNotifier::send(['operations'], 'admin_provider_pending', ['name' => $provider->name_ar], ['provider_id' => $provider->id]);
 
             return $provider;
         });
@@ -53,6 +56,11 @@ class ProviderService
         $missing = $provider->documents()->where('status', DocumentStatus::Pending)->count();
         if ($missing > 0) {
             throw new BusinessException(__('admin.providers.pending_documents', ['count' => $missing]), 'pending_documents');
+        }
+
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($provider, 'status', ProviderStatus::Approved)) {
+            return;
         }
 
         DB::transaction(function () use ($provider, $by, $sectorIds) {
@@ -79,6 +87,11 @@ class ProviderService
 
     public function reject(Provider $provider, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($provider, 'status', ProviderStatus::Rejected)) {
+            return;
+        }
+
         $provider->update(['status' => ProviderStatus::Rejected, 'rejection_reason' => $reason]);
         SystemNotification::send($provider->owner, 'provider_rejected', ['reason' => $reason]);
     }
@@ -86,6 +99,11 @@ class ProviderService
     /** Suspension hides all the provider's venues immediately. */
     public function suspend(Provider $provider, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($provider, 'status', ProviderStatus::Suspended)) {
+            return;
+        }
+
         DB::transaction(function () use ($provider, $reason) {
             $provider->update(['status' => ProviderStatus::Suspended, 'rejection_reason' => $reason]);
             $provider->venues()->where('status', VenueStatus::Published)->update(['status' => VenueStatus::Suspended]);
@@ -96,6 +114,11 @@ class ProviderService
 
     public function reactivate(Provider $provider, User $by): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($provider, 'status', ProviderStatus::Approved)) {
+            return;
+        }
+
         DB::transaction(function () use ($provider, $by) {
             $provider->update(['status' => ProviderStatus::Approved, 'rejection_reason' => null, 'approved_by' => $by->id]);
             $provider->venues()->where('status', VenueStatus::Suspended)->update(['status' => VenueStatus::Published]);
@@ -106,12 +129,22 @@ class ProviderService
 
     public function approveDocument(ProviderDocument $document, User $by): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($document, 'status', DocumentStatus::Approved)) {
+            return;
+        }
+
         $document->update(['status' => DocumentStatus::Approved, 'reviewed_by' => $by->id, 'reviewed_at' => now(), 'rejection_reason' => null]);
         SystemNotification::send($document->provider->owner, 'document_approved', ['type' => $document->type->getLabel()]);
     }
 
     public function rejectDocument(ProviderDocument $document, User $by, string $reason): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($document, 'status', DocumentStatus::Rejected)) {
+            return;
+        }
+
         $document->update(['status' => DocumentStatus::Rejected, 'reviewed_by' => $by->id, 'reviewed_at' => now(), 'rejection_reason' => $reason]);
         SystemNotification::send($document->provider->owner, 'document_rejected', ['type' => $document->type->getLabel(), 'reason' => $reason]);
     }
@@ -171,6 +204,11 @@ class ProviderService
 
     public function rejectSectorRequest(SectorRequest $request, User $by, string $notes): void
     {
+        // A second click (or a second admin at the same moment) must not decide or notify twice.
+        if (! Once::first($request, 'status', RequestStatus::Rejected)) {
+            return;
+        }
+
         $request->update(['status' => RequestStatus::Rejected, 'admin_notes' => $notes, 'reviewed_by' => $by->id, 'reviewed_at' => now()]);
         SystemNotification::send($request->provider->owner, 'sector_request_rejected', ['name' => $request->name_ar, 'reason' => $notes]);
     }

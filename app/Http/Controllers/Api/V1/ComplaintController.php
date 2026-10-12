@@ -10,6 +10,7 @@ use App\Http\Resources\ComplaintResource;
 use App\Models\Complaint;
 use App\Models\Venue;
 use App\Services\ComplaintService;
+use App\Support\AdminNotifier;
 use App\Support\DocNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ class ComplaintController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        return ComplaintResource::collection($request->user()->complaints()->latest()->paginate(20));
+        return ComplaintResource::collection($request->user()->complaints()->with('order:id,number', 'venue')->latest()->paginate(20));
     }
 
     public function store(ComplaintRequest $request): JsonResponse
@@ -40,13 +41,14 @@ class ComplaintController extends Controller
             'body' => $request->body,
             'status' => ComplaintStatus::Open,
         ]);
+        AdminNotifier::send(['support'], 'admin_complaint_new', ['number' => $complaint->number, 'subject' => $complaint->subject], ['complaint_id' => $complaint->id]);
 
         return response()->json(['message' => __('api.complaints.created'), 'data' => new ComplaintResource($complaint)], 201);
     }
 
     public function show(Request $request, int $complaint): ComplaintResource
     {
-        return new ComplaintResource($request->user()->complaints()->with('replies.user')->findOrFail($complaint));
+        return new ComplaintResource($request->user()->complaints()->with('replies.user', 'order:id,number', 'venue')->findOrFail($complaint));
     }
 
     public function reply(ComplaintReplyRequest $request, int $complaint, ComplaintService $complaints): ComplaintResource
@@ -56,6 +58,6 @@ class ComplaintController extends Controller
         // Closed tickets are read-only; a customer reply re-opens a resolved one.
         $complaints->reply($model, $request->user(), (string) $request->body);
 
-        return new ComplaintResource($model->fresh()->load('replies.user'));
+        return new ComplaintResource($model->fresh()->load('replies.user', 'order:id,number', 'venue'));
     }
 }

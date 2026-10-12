@@ -15,6 +15,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class ProviderStatsWidget extends StatsOverviewWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected static ?int $sort = 1;
@@ -40,9 +42,16 @@ class ProviderStatsWidget extends StatsOverviewWidget
             ->map(fn (VenueStatus $s) => $s->getLabel().': '.(int) ($byStatus[$s->value] ?? 0))
             ->implode(' · ');
 
+        $store = (int) $byStatus->sum() === 1 ? $provider->venues()->first() : null;
+
         $stats = [
-            Stat::make(__('provider.dashboard.venues'), number_format((int) $byStatus->sum()))
-                ->description($statusLine)->icon('heroicon-o-building-storefront')->color('primary'),
+            // One store (the normal case): its state in words. Several: the counts per state.
+            $store
+                ? Stat::make(__('provider.dashboard.my_store'), $store->status->getLabel())
+                    ->description(Fmt::tr($store, 'name'))->icon('heroicon-o-building-storefront')
+                    ->color($store->status === VenueStatus::Published ? 'success' : 'warning')
+                : Stat::make(__('provider.dashboard.venues'), number_format((int) $byStatus->sum()))
+                    ->description($statusLine)->icon('heroicon-o-building-storefront')->color('primary'),
         ];
 
         $monthStart = now()->startOfMonth();

@@ -5,9 +5,50 @@ namespace App\Models;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\Localized;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property string|null $title_ar
+ * @property string|null $title_en
+ * @property string $type
+ * @property string $layout
+ * @property string $source
+ * @property array<array-key, mixed>|null $source_params
+ * @property int $max_items
+ * @property bool $is_active
+ * @property Carbon|null $starts_at
+ * @property Carbon|null $ends_at
+ * @property int $sort_order
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Collection<int, HomeSectionItem> $items
+ * @property-read int|null $items_count
+ *
+ * @method static Builder<static>|HomeSection live()
+ * @method static Builder<static>|HomeSection newModelQuery()
+ * @method static Builder<static>|HomeSection newQuery()
+ * @method static Builder<static>|HomeSection query()
+ * @method static Builder<static>|HomeSection whereCreatedAt($value)
+ * @method static Builder<static>|HomeSection whereEndsAt($value)
+ * @method static Builder<static>|HomeSection whereId($value)
+ * @method static Builder<static>|HomeSection whereIsActive($value)
+ * @method static Builder<static>|HomeSection whereLayout($value)
+ * @method static Builder<static>|HomeSection whereMaxItems($value)
+ * @method static Builder<static>|HomeSection whereSortOrder($value)
+ * @method static Builder<static>|HomeSection whereSource($value)
+ * @method static Builder<static>|HomeSection whereSourceParams($value)
+ * @method static Builder<static>|HomeSection whereStartsAt($value)
+ * @method static Builder<static>|HomeSection whereTitleAr($value)
+ * @method static Builder<static>|HomeSection whereTitleEn($value)
+ * @method static Builder<static>|HomeSection whereType($value)
+ * @method static Builder<static>|HomeSection whereUpdatedAt($value)
+ *
+ * @mixin \Eloquent
+ */
 class HomeSection extends Model
 {
     use Auditable, Localized;

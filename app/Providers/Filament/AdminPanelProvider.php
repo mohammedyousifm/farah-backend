@@ -2,11 +2,14 @@
 
 namespace App\Providers\Filament;
 
+use App\Auth\SmsAuthentication;
 use App\Filament\NavGroup;
+use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Support\Brand;
 use App\Http\Middleware\SetAdminLocale;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\Email\EmailAuthentication;
 use Filament\FontProviders\GoogleFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -35,6 +38,10 @@ class AdminPanelProvider extends PanelProvider
             ->emptyStateDescription(fn () => __('admin.empty.description'))
             ->paginationPageOptions([10, 25, 50, 100])
             ->defaultPaginationPageOption(25)
+            // Coming back to a list finds it as it was left: same search, filters and sort.
+            ->persistSearchInSession()
+            ->persistFiltersInSession()
+            ->persistSortInSession()
             ->striped());
     }
 
@@ -46,7 +53,14 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             // "My account" in the user menu: the signed-in admin's own name, email and password.
-            ->profile(isSimple: false)
+            ->profile(EditProfile::class, isSimple: false)
+            // Two-step login: each person switches on a code by SMS, by e-mail, or both, from "My account".
+            ->multiFactorAuthentication([SmsAuthentication::make(), EmailAuthentication::make()->generateCodesUsing(SmsAuthentication::make()->generateCode(...))])
+            // The bell: everything this person was notified about, refreshed every half minute.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
+            // Leaving a half-filled form asks first.
+            ->unsavedChangesAlerts()
             // SPA navigation: pages swap in place (wire:navigate) instead of full reloads.
             ->spa()
             // The language switch changes <html dir/lang>, so it needs a full page load.
@@ -83,6 +97,7 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn () => route('admin.locale', app()->getLocale() === 'ar' ? 'en' : 'ar')),
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.head'))
+            ->renderHook(PanelsRenderHook::CONTENT_START, fn () => view('filament.scheduler-warning'))
             ->renderHook(PanelsRenderHook::SIMPLE_PAGE_END, fn () => view('filament.provider.auth-footer', ['showHome' => false]))
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->middleware([

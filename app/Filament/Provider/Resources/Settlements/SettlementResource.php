@@ -18,7 +18,6 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Storage;
 
 /** Payout statements prepared by the platform (read-only for the provider). */
 class SettlementResource extends Resource
@@ -69,7 +68,7 @@ class SettlementResource extends Resource
                 TextEntry::make('payment_reference')->label(__('provider.fields.payment_reference'))->placeholder('-')->copyable(),
                 TextEntry::make('receipt_path')->label(__('provider.fields.receipt'))->placeholder('-')
                     ->formatStateUsing(fn () => __('provider.actions.open_file'))
-                    ->url(fn (Settlement $r) => $r->receipt_path ? Storage::disk('public')->url($r->receipt_path) : null, true)
+                    ->url(fn (Settlement $r) => $r->receiptUrl(), true)
                     ->color('primary'),
                 TextEntry::make('notes')->label(__('provider.fields.notes'))->placeholder('-')->columnSpan(2),
             ]),

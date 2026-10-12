@@ -74,6 +74,7 @@ class UserResource extends Resource
             Act::withReason('suspend', __('admin.actions.suspend'), function (User $user, string $reason) {
                 $user->update(['status' => UserStatus::Suspended]);
                 $user->tokens()->delete();
+                $user->deviceTokens()->delete(); // no more push notifications to a suspended account
             }, 'danger', 'heroicon-o-no-symbol')
                 ->visible(fn (User $record) => static::canManage() && $record->status === UserStatus::Active),
             Action::make('activate')->label(__('admin.actions.activate'))->icon('heroicon-o-check-circle')->color('success')
@@ -99,6 +100,7 @@ class UserResource extends Resource
                 IconEntry::make('marketing_consent')->label(__('admin.fields.marketing_consent'))->boolean(),
                 IconEntry::make('tracking_consent')->label(__('admin.fields.tracking_consent'))->boolean(),
                 TextEntry::make('ownedProvider.name_ar')->formatStateUsing(Fmt::localized('ownedProvider.name'))->label(__('admin.fields.provider'))->placeholder('-'),
+                TextEntry::make('wallet_balance')->label(__('admin.fields.wallet_balance'))->formatStateUsing(fn ($state) => Fmt::sar($state))->weight('bold'),
                 TextEntry::make('created_at')->label(__('admin.fields.created_at'))->dateTime(),
                 TextEntry::make('last_login_at')->label(__('admin.fields.last_login_at'))->dateTime()->placeholder('-'),
             ]),
@@ -117,6 +119,7 @@ class UserResource extends Resource
                 TextColumn::make('type')->label(__('admin.fields.type'))->badge(),
                 TextColumn::make('city.name_ar')->formatStateUsing(Fmt::localized('city.name'))->label(__('admin.fields.city'))->placeholder('-')->toggleable(),
                 TextColumn::make('orders_count')->label(__('admin.resources.orders.plural'))->badge()->color('gray')->sortable(),
+                TextColumn::make('wallet_balance')->label(__('admin.fields.wallet_balance'))->formatStateUsing(fn ($state) => Fmt::sar($state))->sortable()->toggleable(),
                 TextColumn::make('status')->label(__('admin.fields.status'))->badge(),
                 TextColumn::make('created_at')->label(__('admin.fields.created_at'))->date()->sortable(),
                 TextColumn::make('last_login_at')->label(__('admin.fields.last_login_at'))->since()->placeholder('-')->sortable(),

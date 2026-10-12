@@ -19,7 +19,6 @@ return [
         'settlement_min_amount' => 100,   // SAR, below this nothing is paid out
         'document_expiry_warning_days' => 30,
         'max_bookings_per_order' => 4,   // resources a customer can book in one checkout
-        'cancellation_window_hours' => 24, // customer self-cancel allowed until N hours before start
         'support_phone' => '+966500000000',
         'support_email' => 'support@farah.sa',
         'platform_name_ar' => 'فرة',
@@ -36,7 +35,7 @@ return [
      */
     'admin_modules' => [
         'dashboard', 'users', 'admins', 'providers', 'documents', 'sectors', 'venues',
-        'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger',
+        'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'wallet',
         'reviews', 'complaints', 'content', 'notifications', 'reports',
         'settings', 'audit_logs', 'integrations',
     ],
@@ -44,13 +43,19 @@ return [
     'admin_roles' => [
         'super_admin' => '*',
         'operations' => ['dashboard', 'providers', 'documents', 'sectors', 'venues', 'users.view', 'reviews', 'complaints.view'],
-        'finance' => ['dashboard', 'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'reports', 'providers.view'],
+        'finance' => ['dashboard', 'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'wallet', 'reports', 'providers.view'],
         'content' => ['dashboard', 'content', 'notifications', 'venues.view', 'sectors.view'],
-        'support' => ['dashboard', 'complaints', 'reviews', 'disputes', 'orders.view', 'users.view', 'venues.view', 'providers.view', 'refunds.view'],
+        'support' => ['dashboard', 'complaints', 'reviews', 'disputes', 'orders.view', 'users.view', 'venues.view', 'providers.view', 'refunds.view', 'wallet'],
+    ],
+
+    // The customer wallet: refunds, compensation and rewards only (no top-up).
+    'wallet' => [
+        'max_grant' => (float) env('WALLET_MAX_GRANT', 1000), // most an admin can add in one go, SAR
     ],
 
     'otp' => [
         'ttl_minutes' => (int) env('OTP_TTL_MINUTES', 5),
+        'length' => (int) env('OTP_LENGTH', 6), // digits in a real code
         'max_attempts' => 5,
         'resend_seconds' => 60,
         // Fixed code accepted ONLY in local/testing so the mobile team can log in without SMS.
@@ -63,6 +68,8 @@ return [
         'token_ttl_days' => (int) env('API_TOKEN_TTL_DAYS', 90),
         // Upper bound for ?per_page on paginated endpoints.
         'max_per_page' => 50,
+        // The same action sent twice within this many seconds runs once (double tap, retry). 0 turns it off.
+        'dedupe_seconds' => (int) env('API_DEDUPE_SECONDS', 5),
     ],
 
     'integrations' => [
@@ -72,7 +79,8 @@ return [
         ],
         'sms' => ['driver' => env('SMS_DRIVER', 'log'), 'sender' => env('SMS_SENDER', 'FARAH')],
         'accounting' => ['driver' => env('ACCOUNTING_DRIVER', 'null')],
-        'push' => ['driver' => env('PUSH_DRIVER', 'log')],
+        // 'log' writes pushes to the log; 'fcm' sends them through Firebase using the service-account file.
+        'push' => ['driver' => env('PUSH_DRIVER', 'log'), 'credentials' => env('FIREBASE_CREDENTIALS')],
     ],
 
     /*

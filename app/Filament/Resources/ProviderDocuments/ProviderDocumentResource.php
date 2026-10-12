@@ -82,7 +82,7 @@ class ProviderDocumentResource extends Resource
             TextEntry::make('reviewer.name')->label(__('admin.fields.reviewed_by'))->placeholder('-')
                 ->helperText(fn (ProviderDocument $r) => $r->reviewed_at?->toDateTimeString()),
             TextEntry::make('rejection_reason')->label(__('admin.fields.status_reason'))->placeholder('-')->color('danger')->columnSpanFull(),
-            ImageEntry::make('file_path')->label(__('admin.fields.file'))->disk('public')->imageHeight(420)->columnSpanFull()
+            ImageEntry::make('file_path')->label(__('admin.fields.file'))->disk(ProviderDocument::DISK)->visibility('private')->imageHeight(420)->columnSpanFull()
                 ->visible(fn (ProviderDocument $r) => static::isImage($r->file_path)),
             TextEntry::make('file_link')->label(__('admin.fields.file'))->columnSpanFull()
                 ->state(fn () => __('admin.documents.open_file'))

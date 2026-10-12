@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Resources\Wallet\WalletTransactionResource;
+use App\Models\User;
 use Filament\Resources\Pages\ViewRecord;
 
 class ViewUser extends ViewRecord
@@ -11,6 +13,14 @@ class ViewUser extends ViewRecord
 
     protected function getHeaderActions(): array
     {
-        return UserResource::statusActions();
+        return [
+            WalletTransactionResource::grantAction(user: function (): User {
+                /** @var User $user */
+                $user = $this->getRecord();
+
+                return $user;
+            }),
+            ...UserResource::statusActions(),
+        ];
     }
 }

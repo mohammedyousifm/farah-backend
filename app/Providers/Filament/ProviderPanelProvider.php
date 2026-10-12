@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Auth\SmsAuthentication;
+use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Provider\Pages\Auth\RegisterProvider;
 use App\Filament\Provider\Pages\Dashboard;
 use App\Filament\Provider\Pages\EditProviderProfile;
@@ -12,6 +14,7 @@ use App\Filament\Support\Brand;
 use App\Http\Middleware\SetAdminLocale;
 use App\Models\Provider;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\Email\EmailAuthentication;
 use Filament\FontProviders\GoogleFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -46,13 +49,20 @@ class ProviderPanelProvider extends PanelProvider
             ->registration(RegisterProvider::class)
             ->passwordReset()
             // "My account" in the user menu: the signed-in person's own name, email and password.
-            ->profile(isSimple: false)
+            ->profile(EditProfile::class, isSimple: false)
+            // Two-step login: each person switches on a code by SMS, by e-mail, or both, from "My account".
+            ->multiFactorAuthentication([SmsAuthentication::make(), EmailAuthentication::make()->generateCodesUsing(SmsAuthentication::make()->generateCode(...))])
             ->tenant(Provider::class, slugAttribute: 'slug', ownershipRelationship: 'provider')
             ->tenantProfile(EditProviderProfile::class)
             ->tenantSwitcher()
             // The business box at the top of the sidebar is only useful for people who work for
             // several providers; hide it for everyone else (the profile has its own menu item).
             ->tenantMenu(fn () => (auth('provider')->user()?->providers()->wherePivot('is_active', true)->count() ?? 0) > 1)
+            // The bell: everything this person was notified about, refreshed every half minute.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
+            // Leaving a half-filled form asks first.
+            ->unsavedChangesAlerts()
             // SPA navigation: pages swap in place (wire:navigate) instead of full reloads.
             ->spa()
             // The language switch changes <html dir/lang>, so it needs a full page load.

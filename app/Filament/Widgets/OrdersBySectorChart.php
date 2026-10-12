@@ -9,6 +9,8 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
 
 class OrdersBySectorChart extends ChartWidget
 {
+    protected static bool $isLazy = false;
+
     use InteractsWithPageFilters;
 
     protected static bool $isDiscovered = false;
@@ -46,7 +48,7 @@ class OrdersBySectorChart extends ChartWidget
     protected function getOptions(): array
     {
         return [
-            'plugins' => ['legend' => ['position' => 'bottom']],
+            'plugins' => ['legend' => ['position' => 'bottom', 'labels' => ['font' => ['family' => 'Almarai', 'size' => 13], 'usePointStyle' => true, 'padding' => 16]]],
             'scales' => ['x' => ['display' => false], 'y' => ['display' => false]],
         ];
     }

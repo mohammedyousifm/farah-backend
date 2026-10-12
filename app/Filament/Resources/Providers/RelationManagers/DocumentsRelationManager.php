@@ -58,8 +58,8 @@ class DocumentsRelationManager extends RelationManager
             TextInput::make('number')->label(__('admin.fields.document_number')),
             DatePicker::make('issued_at')->label(__('admin.fields.issued_at')),
             DatePicker::make('expires_at')->label(__('admin.fields.expires_at')),
-            FileUpload::make('file_path')->label(__('admin.fields.file'))->required()->disk('public')->directory('documents')
-                ->acceptedFileTypes(['application/pdf', 'image/*'])->maxSize(10240)->columnSpanFull(),
+            FileUpload::make('file_path')->label(__('admin.fields.file'))->required()->disk(ProviderDocument::DISK)->visibility('private')->directory('documents')
+                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']), // not image/*: that lets SVG (a script carrier) in->maxSize(10240)->columnSpanFull(),
         ]);
     }
 

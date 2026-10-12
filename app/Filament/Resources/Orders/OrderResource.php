@@ -16,6 +16,7 @@ use App\Filament\Resources\Providers\ProviderResource;
 use App\Filament\Resources\Venues\VenueResource;
 use App\Filament\Support\Fmt;
 use App\Models\Order;
+use App\Support\Like;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
@@ -154,9 +155,9 @@ class OrderResource extends Resource
                     ->state(fn (Order $r) => $r->customerDisplayName())
                     ->description(fn (Order $r) => Fmt::phone($r->user?->phone ?? $r->customer_phone))
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn ($q) => $q
-                        ->where('customer_name', 'like', "%{$search}%")
-                        ->orWhere('customer_phone', 'like', "%{$search}%")
-                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', "%{$search}%")->orWhere('phone', 'like', "%{$search}%")))),
+                        ->where('customer_name', 'like', Like::contains($search))
+                        ->orWhere('customer_phone', 'like', Like::contains($search))
+                        ->orWhereHas('user', fn ($u) => $u->where('name', 'like', Like::contains($search))->orWhere('phone', 'like', Like::contains($search))))),
                 TextColumn::make('venue.name_ar')->formatStateUsing(Fmt::localized('venue.name'))->label(__('admin.fields.venue'))->limit(30),
                 TextColumn::make('provider.name_ar')->formatStateUsing(Fmt::localized('provider.name'))->label(__('admin.fields.provider'))->limit(25)->toggleable(),
                 TextColumn::make('total')->label(__('admin.fields.total'))->formatStateUsing(static::money())->sortable(),

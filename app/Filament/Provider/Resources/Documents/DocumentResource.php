@@ -76,7 +76,7 @@ class DocumentResource extends Resource
             DatePicker::make('issued_at')->label(__('provider.fields.issued_at'))->maxDate(now()),
             DatePicker::make('expires_at')->label(__('provider.fields.expires_at'))->minDate(now()->addDay()),
             FileUpload::make('file_path')->label(__('provider.fields.file'))->required()->columnSpanFull()
-                ->disk('public')->directory(fn () => 'providers/'.$provider?->id.'/documents')
+                ->disk(ProviderDocument::DISK)->visibility('private')->directory(fn () => 'providers/'.$provider?->id.'/documents')
                 ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])->maxSize(10240)
                 ->helperText(__('provider.documents.file_hint')),
         ]);
@@ -88,14 +88,14 @@ class DocumentResource extends Resource
         $provider = ProviderAccess::provider();
 
         if ($old && $old->status === DocumentStatus::Approved && ! ($old->expires_at && $old->isExpiringSoon())) {
-            Storage::disk('public')->delete($data['file_path']);
+            Storage::disk(ProviderDocument::DISK)->delete($data['file_path']);
             throw new BusinessException(__('api.providers.document_locked'), 'document_locked');
         }
 
         return DB::transaction(function () use ($provider, $data, $old) {
             if ($old) {
                 if ($old->file_path && ! str_starts_with($old->file_path, 'demo/')) {
-                    Storage::disk('public')->delete($old->file_path);
+                    Storage::disk(ProviderDocument::DISK)->delete($old->file_path);
                 }
                 $old->delete();
             }

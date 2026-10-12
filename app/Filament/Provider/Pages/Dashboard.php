@@ -7,6 +7,7 @@ use App\Filament\Provider\Widgets\LatestOrdersWidget;
 use App\Filament\Provider\Widgets\OnboardingWidget;
 use App\Filament\Provider\Widgets\ProviderStatsWidget;
 use App\Filament\Provider\Widgets\UpcomingBookingsWidget;
+use Filament\Actions\Action;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
@@ -41,6 +42,21 @@ class Dashboard extends BaseDashboard
         return [
             ...(OnboardingWidget::needsVenueSetup(ProviderAccess::provider()) ? [OnboardingWidget::class] : []),
             ProviderStatsWidget::class, UpcomingBookingsWidget::class, LatestOrdersWidget::class,
+        ];
+    }
+
+    /** The three things counter staff do all day, one click from the home page. */
+    protected function getHeaderActions(): array
+    {
+        if (ProviderAccess::onboarding()) {
+            return [];
+        }
+
+        return [
+            Action::make('check_in')->label(__('provider.checkin.title'))->icon('heroicon-o-qr-code')
+                ->url(CheckIn::getUrl())->visible(fn () => CheckIn::canAccess()),
+            Action::make('schedule')->label(__('provider.dashboard.today_schedule'))->icon('heroicon-o-calendar-days')->color('gray')
+                ->url(Schedule::getUrl())->visible(fn () => Schedule::canAccess()),
         ];
     }
 

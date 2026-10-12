@@ -1,0 +1,17 @@
+# Static analysis (Larastan). Run: composer analyse
+#
+# Level 1 is clean with no ignore list. Raising the level is the next step: level 2 reports about
+# 165 places, mostly Filament closures whose record type the tool cannot infer.
+#
+# Model fields are documented by generated @property blocks. After a migration that adds or
+# changes a column, refresh them:  php artisan ide-helper:models --write --reset
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 1
+    paths:
+        - app
+        - routes
+        - database/seeders
+    tmpDir: storage/framework/phpstan

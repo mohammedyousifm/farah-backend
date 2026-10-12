@@ -6,7 +6,11 @@ use App\Models\Resource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** The bookable unit of an activity (table, lane, room, ...). @mixin Resource */
+/**
+ * The bookable unit of an activity (table, lane, room, ...).
+ *
+ * @mixin Resource
+ */
 class ResourceResource extends JsonResource
 {
     public function toArray(Request $request): array

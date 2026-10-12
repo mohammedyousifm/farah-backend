@@ -11,6 +11,8 @@ use Filament\Widgets\TableWidget;
 
 class LatestOrdersWidget extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected static ?int $sort = 5;
@@ -30,7 +32,7 @@ class LatestOrdersWidget extends TableWidget
                 TextColumn::make('provider.name_ar')->formatStateUsing(Fmt::localized('provider.name'))->label(__('admin.fields.provider'))->limit(25),
                 TextColumn::make('customer_name')->label(__('admin.fields.customer'))->placeholder('-'),
                 TextColumn::make('channel')->label(__('admin.fields.channel'))->badge()->formatStateUsing(fn ($state) => __("admin.channels.{$state}")),
-                TextColumn::make('total')->label(__('admin.fields.total'))->money('SAR'),
+                TextColumn::make('total')->label(__('admin.fields.total'))->formatStateUsing(fn ($state) => Fmt::sar($state)),
                 TextColumn::make('status')->label(__('admin.fields.status'))->badge(),
                 TextColumn::make('created_at')->label(__('admin.fields.created_at'))->since(),
             ])

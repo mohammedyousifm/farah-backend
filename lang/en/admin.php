@@ -4,6 +4,7 @@
 // Keys are referenced as __('admin.<group>.<key>') from app/Filament, services and views.
 
 return [
+    'scheduler_stale' => 'Background jobs have not run for over ten minutes: unpaid orders are not expiring and bookings are not completing. Check that cron is running on the server.',
     'currency' => 'SAR',
     'done' => 'Done',
     'yes' => 'Yes',
@@ -60,6 +61,10 @@ return [
         'complaints' => [
             'singular' => 'Complaint',
             'plural' => 'Complaints',
+        ],
+        'wallet' => [
+            'singular' => 'Wallet movement',
+            'plural' => 'Customer wallets',
         ],
         'users' => [
             'singular' => 'User',
@@ -137,6 +142,9 @@ return [
         'overview' => 'Overview',
     ],
     'actions' => [
+        'wallet_grant' => 'Add wallet balance',
+        'compensate' => 'Compensate the customer',
+        'open_map' => 'Open on the map',
         'reopen' => 'Reopen',
         'close' => 'Close',
         'remove_reply' => 'Remove provider reply',
@@ -145,7 +153,6 @@ return [
         'reject' => 'Reject',
         'suspend' => 'Suspend',
         'assign' => 'Assign',
-        'cancel_unpaid' => 'Cancel unpaid order',
         'feature' => 'Feature',
         'unfeature' => 'Unfeature',
         'refund' => 'Refund',
@@ -174,6 +181,9 @@ return [
         'add_option' => 'Add option',
     ],
     'fields' => [
+        'wallet_balance' => 'Wallet balance',
+        'balance_after' => 'Balance after',
+        'wallet_note' => 'Reason',
         'media' => 'Media',
         'preview' => 'Preview',
         'link' => 'Link',
@@ -417,6 +427,7 @@ return [
         'uploaded_at' => 'Uploaded at',
         'vat_number' => 'VAT number',
         'website' => 'Website',
+        'maps_url' => 'Google Maps link',
     ],
     'venues' => [
         'approve_hint' => 'The venue will be published to customers and the provider notified.',
@@ -459,7 +470,7 @@ return [
         'accounting' => 'Accounting',
         'not_synced' => 'Not synced',
         'ledger_entries' => 'Ledger entries',
-        'refund_hint' => 'The refund is processed immediately through the gateway and the commission reversed. Maximum: :max SAR',
+        'refund_hint' => 'The amount is added to the customer\'s Farah wallet at once and the commission reversed. Maximum: :max SAR',
         'channels' => [
             'online' => 'Online',
             'offline' => 'Offline',
@@ -503,6 +514,7 @@ return [
         'settlements' => 'Settlements',
         'commissions' => 'Commissions',
         'ledger' => 'Ledger',
+        'wallet' => 'Customer wallets',
         'reviews' => 'Reviews',
         'complaints' => 'Complaints',
         'content' => 'Content',
@@ -555,6 +567,7 @@ return [
         'suggestion' => 'Suggestion',
     ],
     'hints' => [
+        'wallet_grant' => 'The amount is added to the customer\'s wallet at once and they are notified. The wallet takes refunds, compensation and rewards only; it cannot be topped up. Most in one go: SAR :max',
         'iban' => 'Starts with SA followed by 22 digits, e.g. SA0380000000608010167519',
         'cannot_edit_own_roles' => 'You cannot change your own roles or status.',
         'commission_new_version' => 'The current version is closed at the effective date and a new version starts. Past orders keep their original commission.',
@@ -707,7 +720,6 @@ return [
             'settlement_min_amount' => 'Minimum settlement amount',
             'order_payment_timeout_minutes' => 'Payment timeout (minutes)',
             'max_bookings_per_order' => 'Max bookings per order',
-            'cancellation_window_hours' => 'Cancellation window (hours before the booking starts)',
             'document_expiry_warning_days' => 'Document expiry warning (days)',
             'support_phone' => 'Support phone',
             'support_email' => 'Support email',
@@ -719,7 +731,6 @@ return [
         ],
         'hints' => [
             'settlement_hold_days' => 'Funds become available for settlement this long after the booking ends.',
-            'cancellation_window_hours' => 'Customers can cancel themselves until this many hours before start.',
             'maintenance_mode' => 'The app shows a maintenance message and stops bookings.',
         ],
     ],
@@ -737,6 +748,7 @@ return [
         'deleted' => 'Deleted',
     ],
     'payment_methods' => [
+        'wallet' => 'Farah wallet',
         'mada' => 'mada',
         'visa' => 'Visa',
         'mastercard' => 'Mastercard',

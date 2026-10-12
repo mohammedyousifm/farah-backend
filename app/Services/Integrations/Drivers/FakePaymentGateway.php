@@ -28,8 +28,9 @@ class FakePaymentGateway implements PaymentGateway
 
     public function verifySignature(string $payload, ?string $signature): bool
     {
-        // An empty secret would let anyone compute a valid HMAC.
-        if (blank(config('farah.integrations.payment.webhook_secret'))) {
+        // An empty secret, or the "change-me" placeholder on a real server, would let anyone compute a valid HMAC.
+        $secret = (string) config('farah.integrations.payment.webhook_secret');
+        if ($secret === '' || ($secret === 'change-me' && ! app()->environment('local', 'testing'))) {
             return false;
         }
 

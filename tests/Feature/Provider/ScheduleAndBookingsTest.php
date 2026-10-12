@@ -195,7 +195,8 @@ class ScheduleAndBookingsTest extends ProviderPanelTestCase
         $booking = $order->bookings()->firstOrFail();
         $this->assertSame([$cell['resource'], 2, BookingStatus::Confirmed], [$booking->resource_id, $booking->slots, $booking->status]);
         $this->assertTrue($booking->starts_at->equalTo($this->slot(0, '19:00')));
-        $this->assertSame($this->today().' 19:00 - 21:00', BookingResource::window($booking));
+        // Wrapped in left-to-right isolate marks so the order survives inside Arabic text.
+        $this->assertSame("\u{2066}".$this->today()." 19:00 - 21:00\u{2069}", BookingResource::window($booking));
 
         $this->assertSame(['booked', 'أحمد', $booking->code], array_values(array_intersect_key($this->cellAt($page, 3, '19:00'), array_flip(['status', 'customer', 'code']))));
         $this->assertSame('booked', $this->cellAt($page, 3, '20:00')['status']);
@@ -307,7 +308,7 @@ class ScheduleAndBookingsTest extends ProviderPanelTestCase
             ->assertSet('result.code', $first->code)
             ->assertSet('result.activity', 'بلياردو')
             ->assertSet('result.resource', 'طاولة 1')
-            ->assertSet('result.window', $this->today().' 20:00 - 22:00')
+            ->assertSet('result.window', "\u{2066}".$this->today()." 20:00 - 22:00\u{2069}")
             ->assertSet('result.customer', 'Walk-in customer')
             ->assertSet('result.order', $first->order->number)
             ->assertSet('result.time', $this->today().' 15:00')

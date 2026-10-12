@@ -2,9 +2,14 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Venue;
 use Illuminate\Http\Request;
 
-/** Full venue details (customer app + provider app): the card plus hours, media and activities. @mixin \App\Models\Venue */
+/**
+ * Full venue details (customer app + provider app): the card plus hours, media and activities.
+ *
+ * @mixin Venue
+ */
 class VenueResource extends VenueCardResource
 {
     /** Relations the details screen needs. */

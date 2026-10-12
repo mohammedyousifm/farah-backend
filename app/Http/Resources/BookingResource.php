@@ -35,6 +35,7 @@ class BookingResource extends JsonResource
                 'id' => $this->order->id,
                 'number' => $this->order->number,
                 'status' => $this->order->status?->toArray(),
+                'has_review' => $this->when(isset($this->order->reviews_exists), fn () => (bool) $this->order->reviews_exists),
             ]),
         ];
     }

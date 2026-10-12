@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Complaints\Pages;
 
 use App\Enums\ComplaintStatus;
 use App\Filament\Resources\Complaints\ComplaintResource;
+use App\Filament\Resources\Wallet\WalletTransactionResource;
 use App\Filament\Support\Act;
 use App\Models\Complaint;
 use App\Models\User;
@@ -69,6 +70,10 @@ class ViewComplaint extends ViewRecord
                 ])
                 ->modalSubmitActionLabel(__('admin.actions.resolve'))
                 ->action(fn (array $data) => $this->runAndRefresh(fn () => $this->service()->resolve($this->complaint(), auth()->user(), $data['resolution']))),
+
+            // Compensation goes to the customer's wallet and is linked to this complaint.
+            WalletTransactionResource::grantAction('compensate', fn (): User => $this->complaint()->user, fn (): Complaint => $this->complaint())
+                ->visible(fn () => Act::can('wallet.manage') && $this->complaint()->user_id !== null),
 
             ActionGroup::make([
                 Action::make('status')->label(__('admin.actions.change_status'))->icon('heroicon-o-arrows-right-left')

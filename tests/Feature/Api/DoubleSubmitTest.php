@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\OrderStatus;
 use App\Models\BookingSlot;
 use App\Models\Order;
+use App\Services\OrderService;
 
 /**
  * Double taps and repeated requests must not create duplicate orders or confusing errors.
@@ -72,30 +74,18 @@ class DoubleSubmitTest extends ApiTestCase
         $this->assertNotSame($first->json('data.order.bookings.0.resource.id'), $second->json('data.order.bookings.0.resource.id'));
     }
 
-    public function test_a_cancelled_order_is_not_handed_back_as_a_duplicate(): void
+    public function test_an_expired_order_is_not_handed_back_as_a_duplicate(): void
     {
         $venue = $this->venue($this->provider());
         $customer = $this->customer();
         $payload = $this->line($venue, 1);
 
         $first = $this->actingAs($customer)->postJson('/api/v1/bookings', $payload)->assertCreated()->json('data.order.id');
-        $this->actingAs($customer)->postJson("/api/v1/orders/{$first}/cancel")->assertOk();
+        app(OrderService::class)->cancelUnpaid(Order::findOrFail($first), 'payment_timeout', OrderStatus::Expired);
 
         $second = $this->actingAs($customer)->postJson('/api/v1/bookings', $payload)->assertCreated();
         $this->assertNotSame($first, $second->json('data.order.id'));
         $this->assertSame('pending_payment', $second->json('data.order.status.value'));
-    }
-
-    public function test_cancelling_twice_says_it_is_already_cancelled(): void
-    {
-        $venue = $this->venue($this->provider());
-        $customer = $this->customer();
-
-        $order = $this->actingAs($customer)->postJson('/api/v1/bookings', $this->line($venue, 1))->json('data.order.id');
-
-        $this->actingAs($customer)->postJson("/api/v1/orders/{$order}/cancel")->assertOk();
-        $this->actingAs($customer)->postJson("/api/v1/orders/{$order}/cancel")
-            ->assertStatus(422)->assertJsonPath('code', 'order_already_cancelled');
     }
 
     public function test_validation_and_rate_limit_messages_are_translated(): void

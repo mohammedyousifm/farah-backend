@@ -31,6 +31,7 @@ class ProviderProfileResource extends JsonResource
             'logo_url' => $this->logoUrl(),
             'cover_url' => $this->coverUrl(),
             'website' => $this->website,
+            'maps_url' => $this->maps_url,
             'city' => new CityResource($this->whenLoaded('city')),
             'rating_avg' => $this->rating_avg,
             'rating_count' => $this->rating_count,
@@ -55,7 +56,6 @@ class ProviderProfileResource extends JsonResource
 
             // Identity and bank details: owner / managers / members with profile or finance access only.
             $this->mergeWhen($own && $this->canSeeSensitive($request), fn () => [
-                'national_id' => $this->national_id,
                 'bank_name' => $this->bank_name,
                 'iban' => $this->iban,
                 'account_holder' => $this->account_holder,

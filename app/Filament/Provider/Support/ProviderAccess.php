@@ -30,6 +30,12 @@ class ProviderAccess
         return $tenant instanceof Provider ? $tenant : null;
     }
 
+    /** More than one store: only then do tables need a "which store?" column and filter. */
+    public static function manyStores(): bool
+    {
+        return once(fn () => (static::provider()?->venues()->count() ?? 0) > 1);
+    }
+
     /** The signed-in user's active membership of the current provider (cached per request). */
     public static function member(): ?ProviderMember
     {

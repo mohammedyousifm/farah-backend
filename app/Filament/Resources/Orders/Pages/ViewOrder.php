@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Orders\Pages;
 
-use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Support\Act;
 use App\Models\Order;
@@ -31,9 +30,6 @@ class ViewOrder extends ViewRecord
                 ])
                 ->action(fn (Order $record, array $data) => Act::run(fn () => app(RefundService::class)
                     ->createByAdmin($record, (float) $data['amount'], null, $data['reason'], auth()->user()))),
-
-            Act::withReason('cancel_unpaid', __('admin.actions.cancel_unpaid'), fn (Order $r, string $reason) => app(OrderService::class)->cancelUnpaid($r, $reason), 'danger', 'heroicon-o-no-symbol')
-                ->visible(fn (Order $record) => OrderResource::canManage() && $record->status === OrderStatus::PendingPayment),
 
             Action::make('resync_accounting')->label(__('admin.actions.resync_accounting'))->icon('heroicon-o-arrow-path')->color('gray')
                 ->visible(fn (Order $record) => OrderResource::canManage() && $record->isPaid())

@@ -61,6 +61,8 @@ class ReferenceDataSeeder extends Seeder
             ['name' => ['دارت', 'Darts'], 'icon' => 'darts', 'license' => false, 'categories' => []],
             ['name' => ['ملاعب', 'Sports Courts'], 'icon' => 'courts', 'license' => false,
                 'categories' => [['بادل', 'Padel'], ['كرة قدم', 'Football'], ['كرة سلة', 'Basketball'], ['تنس', 'Tennis']]],
+            ['name' => ['ألعاب الجلسات', 'Majlis Games'], 'icon' => 'majlis-games', 'license' => false,
+                'categories' => [['بلوت', 'Baloot'], ['جاكارو', 'Jakaroo'], ['كيرم', 'Carrom'], ['فرفيرة', 'Foosball'], ['دومينو', 'Dominoes']]],
             ['name' => ['تجارب ترفيهية', 'Experiences'], 'icon' => 'experiences', 'license' => false,
                 'categories' => [['غرف الهروب', 'Escape rooms'], ['كاريوكي', 'Karaoke'], ['رمي الفؤوس', 'Axe throwing']]],
         ];
@@ -121,7 +123,7 @@ class ReferenceDataSeeder extends Seeder
         $pages = [
             'terms' => ['الشروط والأحكام', 'Terms & Conditions'],
             'privacy' => ['سياسة الخصوصية', 'Privacy Policy'],
-            'refund-policy' => ['سياسة الإلغاء والاسترداد', 'Cancellation & Refund Policy'],
+            'refund-policy' => ['سياسة الاسترداد', 'Refund Policy'],
             'about' => ['عن فرة', 'About Farah'],
         ];
 

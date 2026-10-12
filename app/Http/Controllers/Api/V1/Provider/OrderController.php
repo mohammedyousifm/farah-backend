@@ -11,6 +11,7 @@ use App\Http\Resources\OrderResource;
 use App\Models\Venue;
 use App\Services\CheckInService;
 use App\Services\OrderService;
+use App\Support\Like;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -27,9 +28,9 @@ class OrderController extends ProviderController
             ->when($request->integer('venue_id'), fn ($q, $id) => $q->where('venue_id', $id))
             ->when($request->status, fn ($q, $s) => $q->whereIn('status', explode(',', $s)))
             ->when($request->channel, fn ($q, $c) => $q->where('channel', $c))
-            ->when($request->q, fn ($q, $term) => $q->where(fn ($w) => $w->where('number', 'like', "%{$term}%")
-                ->orWhere('customer_name', 'like', "%{$term}%")
-                ->orWhere('customer_phone', 'like', "%{$term}%")
+            ->when($request->q, fn ($q, $term) => $q->where(fn ($w) => $w->where('number', 'like', Like::contains($term))
+                ->orWhere('customer_name', 'like', Like::contains($term))
+                ->orWhere('customer_phone', 'like', Like::contains($term))
                 ->orWhereHas('bookings', fn ($b) => $b->where('code', strtoupper($term)))))
             ->when($request->date_from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
             ->when($request->date_to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))

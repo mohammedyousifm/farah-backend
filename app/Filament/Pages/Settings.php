@@ -40,7 +40,6 @@ class Settings extends Page
         'settlement_min_amount' => ['finance', 'float'],
         'order_payment_timeout_minutes' => ['orders', 'int'],
         'max_bookings_per_order' => ['orders', 'int'],
-        'cancellation_window_hours' => ['orders', 'int'],
         'document_expiry_warning_days' => ['providers', 'int'],
         'support_phone' => ['app', 'string'],
         'support_email' => ['app', 'string'],
@@ -102,8 +101,6 @@ class Settings extends Page
                 Section::make(__('admin.settings.groups.orders'))->icon('heroicon-o-shopping-bag')->columns(2)->schema([
                     TextInput::make('order_payment_timeout_minutes')->label($label('order_payment_timeout_minutes'))->integer()->minValue(1)->maxValue(1440)->required(),
                     TextInput::make('max_bookings_per_order')->label($label('max_bookings_per_order'))->integer()->minValue(1)->maxValue(100)->required(),
-                    TextInput::make('cancellation_window_hours')->label($label('cancellation_window_hours'))->integer()->minValue(0)->required()
-                        ->helperText(__('admin.settings.hints.cancellation_window_hours')),
                 ]),
                 Section::make(__('admin.settings.groups.providers'))->icon('heroicon-o-building-storefront')->columns(2)->schema([
                     TextInput::make('document_expiry_warning_days')->label($label('document_expiry_warning_days'))->integer()->minValue(1)->maxValue(365)->required(),

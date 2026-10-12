@@ -12,6 +12,8 @@ use Filament\Widgets\TableWidget;
 
 class LatestOrdersWidget extends TableWidget
 {
+    protected static bool $isLazy = false;
+
     protected static bool $isDiscovered = false;
 
     protected static ?int $sort = 3;
@@ -27,11 +29,11 @@ class LatestOrdersWidget extends TableWidget
             ->defaultPaginationPageOption(8)
             ->columns([
                 TextColumn::make('number')->label(__('provider.fields.number'))->weight('bold'),
-                TextColumn::make('venue.name_ar')->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
+                TextColumn::make('venue.name_ar')->visible(fn () => ProviderAccess::manyStores())->formatStateUsing(Fmt::localized('venue.name'))->label(__('provider.fields.venue'))->limit(30),
                 TextColumn::make('customer')->label(__('provider.fields.customer'))->state(fn (Order $r) => $r->customerDisplayName()),
                 TextColumn::make('channel')->label(__('provider.fields.channel'))->badge()->color('gray')
                     ->formatStateUsing(fn ($state) => __("provider.orders.channels.{$state}")),
-                TextColumn::make('total')->label(__('provider.fields.total'))->money('SAR'),
+                TextColumn::make('total')->label(__('provider.fields.total'))->formatStateUsing(fn ($state) => Fmt::sar($state)),
                 TextColumn::make('status')->label(__('provider.fields.status'))->badge(),
                 TextColumn::make('created_at')->label(__('provider.fields.created_at'))->since(),
             ])

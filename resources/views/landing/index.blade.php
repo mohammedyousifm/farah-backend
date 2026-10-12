@@ -33,6 +33,8 @@
         'darts' => '<circle cx="11" cy="13" r="8"/><circle cx="11" cy="13" r="4"/><path d="m11 13 8.5-8.5M16.5 4.5h3v3"/>',
         'courts' => '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="M12 5v14M3 9.5h3v5H3M21 9.5h-3v5h3"/><circle cx="12" cy="12" r="2.2"/>',
         'experiences' => '<circle cx="8" cy="12" r="4"/><path d="M12 12h9M17.5 12v3M20.5 12v2"/>',
+        // two playing cards, one behind the other (baloot, jakaroo and the other sitting-room games)
+        'majlis-games' => '<rect x="4" y="6.5" width="10" height="13" rx="1.6" transform="rotate(-10 9 13)"/><rect x="10" y="4.5" width="10" height="13" rx="1.6" transform="rotate(8 15 11)"/><path d="M15 9.2l1.4 1.8-1.4 1.8-1.4-1.8z"/>',
     ];
     $sectorIcon = fn (?string $key) => isset($activityIcons[$key])
         ? '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$activityIcons[$key].'</svg>'

@@ -36,7 +36,6 @@ class SecurityTest extends ApiTestCase
         Sanctum::actingAs($this->customer('+966502020202'));
 
         $this->getJson("/api/v1/orders/{$orderId}")->assertNotFound();
-        $this->postJson("/api/v1/orders/{$orderId}/cancel")->assertNotFound();
         $this->postJson("/api/v1/orders/{$orderId}/pay")->assertNotFound();
         $this->getJson("/api/v1/orders/{$orderId}/refund-quote")->assertNotFound();
         $this->getJson("/api/v1/payments/{$payment->reference}")->assertNotFound();
@@ -183,23 +182,24 @@ class SecurityTest extends ApiTestCase
     public function test_sensitive_provider_fields_need_profile_or_finance_access(): void
     {
         $provider = $this->provider();
-        $provider->update(['iban' => 'SA0380000000608010167519', 'national_id' => '1234567890']);
+        $provider->update(['iban' => 'SA0380000000608010167519']);
         $staff = $this->customer('+966507070707');
         $provider->members()->create(['user_id' => $staff->id, 'role' => 'staff', 'permissions' => ['bookings.checkin'], 'is_active' => true]);
 
         Sanctum::actingAs($staff);
-        $this->getJson('/api/v1/provider/profile')->assertOk()->assertJsonMissingPath('data.iban')->assertJsonMissingPath('data.national_id');
+        $this->getJson('/api/v1/provider/profile')->assertOk()->assertJsonMissingPath('data.iban');
 
         Sanctum::actingAs($provider->owner);
         $this->getJson('/api/v1/provider/profile')->assertOk()->assertJsonPath('data.iban', 'SA0380000000608010167519');
 
         // Public profile never exposes them.
-        $this->getJson("/api/v1/providers/{$provider->id}")->assertOk()->assertJsonMissingPath('data.iban')->assertJsonMissingPath('data.cr_number');
+        $this->getJson("/api/v1/providers/{$provider->id}")->assertOk()->assertJsonMissingPath('data.iban');
     }
 
     public function test_uploads_reject_svg_html_and_script_urls(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $provider = $this->provider();
         $venue = $this->venue($provider);
         Sanctum::actingAs($provider->owner);

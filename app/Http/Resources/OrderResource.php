@@ -11,6 +11,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
  * commission / net figures and customer contact details.
  *
  * @mixin Order
+ *
+ * @property-read bool|null $reviews_exists set by the controllers that list or show a customer's orders
  */
 class OrderResource extends JsonResource
 {

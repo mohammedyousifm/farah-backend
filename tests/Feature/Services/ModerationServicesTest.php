@@ -60,6 +60,7 @@ class ModerationServicesTest extends ServiceTestCase
     public function test_dispute_refund_failure_reverts_the_resolution(): void
     {
         $order = $this->paidOrder($this->venue($this->provider()), 1);
+        $order->user->delete(); // no account, so no wallet: the refund goes back through the gateway
         $admin = $this->admin();
         $this->failingRefunds();
         $service = app(DisputeService::class);

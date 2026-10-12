@@ -11,7 +11,7 @@ class VenueMediaRequest extends ApiRequest
     {
         return [
             'file' => ['required_without:url', 'file', 'mimetypes:image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime', 'max:51200'],
-            'url' => ['required_without:file', 'nullable', 'url:https,http', 'max:500'],
+            'url' => ['required_without:file', 'nullable', 'url:https', 'max:500'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
