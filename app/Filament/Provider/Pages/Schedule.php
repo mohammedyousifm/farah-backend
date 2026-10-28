@@ -256,7 +256,14 @@ class Schedule extends Page
         abort_unless($resource, 404);
         $resource->setRelation('activity', $activity);
 
-        return [$activity, $resource, CarbonImmutable::parse((string) ($arguments['start'] ?? ''))->utc()];
+        // The start comes from the browser: a malformed value is a 404, not a server error.
+        try {
+            $start = CarbonImmutable::parse((string) ($arguments['start'] ?? ''))->utc();
+        } catch (\Throwable) {
+            abort(404);
+        }
+
+        return [$activity, $resource, $start];
     }
 
     /** A free slot was clicked: book it for a walk-in customer (OrderService::createOffline) or take it out of sale. */

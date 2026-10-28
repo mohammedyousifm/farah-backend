@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Enums\OrderStatus;
 use App\Models\BookingSlot;
 use App\Models\Order;
 use App\Services\OrderService;
@@ -81,7 +80,7 @@ class DoubleSubmitTest extends ApiTestCase
         $payload = $this->line($venue, 1);
 
         $first = $this->actingAs($customer)->postJson('/api/v1/bookings', $payload)->assertCreated()->json('data.order.id');
-        app(OrderService::class)->cancelUnpaid(Order::findOrFail($first), 'payment_timeout', OrderStatus::Expired);
+        app(OrderService::class)->expire(Order::findOrFail($first));
 
         $second = $this->actingAs($customer)->postJson('/api/v1/bookings', $payload)->assertCreated();
         $this->assertNotSame($first, $second->json('data.order.id'));

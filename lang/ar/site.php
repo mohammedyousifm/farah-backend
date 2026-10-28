@@ -8,7 +8,6 @@ return [
     'a11y' => [
         'skip' => 'تخطَّ إلى المحتوى',
         'main_nav' => 'التنقل الرئيسي',
-        'footer_nav' => 'روابط الموقع',
         'menu_open' => 'فتح القائمة',
         'menu_close' => 'إغلاق القائمة',
         'breadcrumb' => 'مسار التنقل',
@@ -87,5 +86,21 @@ return [
             'title' => 'نعود قريباً',
             'body' => 'نجري أعمال صيانة لتحسين المنصة. شكراً لصبرك، سنعود خلال وقت قصير.',
         ],
+    ],
+    // Public store page (/places/{slug}), for stores whose plan includes search-engine visibility.
+    'place' => [
+        'about' => 'عن المكان',
+        'activities' => 'الأنشطة والأسعار',
+        'hours' => 'ساعات العمل',
+        'closed' => 'مغلق',
+        'per_hour' => ':price :currency / ساعة',
+        'from_price' => 'يبدأ من :price :currency للساعة',
+        'currency' => 'ر.س',
+        'book_title' => 'احجز وقتك',
+        'book_body' => 'اختر النشاط والوقت المناسب واحجز خلال دقيقة من تطبيق فرة.',
+        'get_app' => 'حمّل تطبيق فرة',
+        'directions' => 'الاتجاهات على الخريطة',
+        'fallback_description' => 'احجز في :name في :city بالساعة عبر تطبيق فرة.',
+        'days' => ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'],
     ],
 ];

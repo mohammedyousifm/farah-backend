@@ -19,6 +19,7 @@ use App\Filament\Resources\Providers\RelationManagers\SectorsRelationManager;
 use App\Filament\Resources\Providers\RelationManagers\SettlementsRelationManager;
 use App\Filament\Resources\Providers\RelationManagers\VenuesRelationManager;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Provider;
 use App\Models\User;
@@ -123,14 +124,14 @@ class ProviderResource extends Resource
                     TextInput::make('name_en')->label(__('admin.fields.name_en'))->maxLength(255),
                     Textarea::make('bio_ar')->label(__('admin.fields.bio_ar'))->rows(3),
                     Textarea::make('bio_en')->label(__('admin.fields.bio_en'))->rows(3),
-                    FileUpload::make('logo')->label(__('admin.fields.logo'))->image()->disk('public')->directory('providers'),
-                    FileUpload::make('cover')->label(__('admin.fields.cover'))->image()->disk('public')->directory('providers'),
+                    FileUpload::make('logo')->label(__('admin.fields.logo'))->acceptedFileTypes(Upload::IMAGES)->maxSize(4096)->disk('public')->directory('providers'),
+                    FileUpload::make('cover')->label(__('admin.fields.cover'))->acceptedFileTypes(Upload::IMAGES)->maxSize(8192)->disk('public')->directory('providers'),
                 ]),
                 Tab::make(__('admin.tabs.contact'))->icon('heroicon-o-phone')->columns(2)->schema([
                     TextInput::make('phone')->label(__('admin.fields.phone'))->tel(),
                     TextInput::make('email')->label(__('admin.fields.email'))->email(),
-                    TextInput::make('website')->label(__('admin.fields.website'))->url(),
-                    TextInput::make('maps_url')->label(__('admin.fields.maps_url'))->url()->maxLength(500)->rule(new GoogleMapsLink),
+                    TextInput::make('website')->label(__('admin.fields.website'))->url()->rule('url:http,https')->maxLength(200),
+                    TextInput::make('maps_url')->label(__('admin.fields.maps_url'))->url()->rule('url:http,https')->maxLength(500)->rule(new GoogleMapsLink),
                     Select::make('city_id')->label(__('admin.fields.city'))->options(fn () => City::orderBy('sort_order')->pluck('name_ar', 'id'))->searchable(),
                     TextInput::make('address')->label(__('admin.fields.address'))->columnSpanFull(),
                     TextInput::make('lat')->label(__('admin.fields.lat'))->numeric(),

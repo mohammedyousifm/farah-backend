@@ -24,7 +24,6 @@ class VenueBriefResource extends JsonResource
             'address' => $this->address,
             'lat' => $this->lat,
             'lng' => $this->lng,
-            'phone' => $this->phone,
             'city' => $this->whenLoaded('city', fn () => $this->city ? ['id' => $this->city->id, 'name' => $this->city->tr('name')] : null),
         ];
     }

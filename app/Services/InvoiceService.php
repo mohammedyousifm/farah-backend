@@ -49,7 +49,8 @@ class InvoiceService
             }
 
             $issuedAt = $locked->confirmed_at ?? now();
-            $year = (int) $issuedAt->format('Y');
+            // The invoice year is the year on the business clock (an order paid at 01:00 on 1 January is next year's).
+            $year = (int) $issuedAt->copy()->setTimezone(AvailabilityService::timezone())->format('Y');
 
             DB::table('invoice_sequences')->insertOrIgnore(['year' => $year, 'last' => 0]);
             $next = (int) DB::table('invoice_sequences')->where('year', $year)->lockForUpdate()->value('last') + 1;

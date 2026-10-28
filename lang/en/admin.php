@@ -7,12 +7,9 @@ return [
     'scheduler_stale' => 'Background jobs have not run for over ten minutes: unpaid orders are not expiring and bookings are not completing. Check that cron is running on the server.',
     'currency' => 'SAR',
     'done' => 'Done',
-    'yes' => 'Yes',
-    'no' => 'No',
     'empty' => [
         'description' => 'Nothing here yet. Records will show up here as soon as they are added.',
     ],
-    'locale_switch' => 'العربية',
     'resources' => [
         'venues' => [
             'singular' => 'Venue',
@@ -65,6 +62,14 @@ return [
         'wallet' => [
             'singular' => 'Wallet movement',
             'plural' => 'Customer wallets',
+        ],
+        'plans' => [
+            'singular' => 'Plan',
+            'plural' => 'Plans',
+        ],
+        'subscriptions' => [
+            'singular' => 'Subscription',
+            'plural' => 'Plan subscriptions',
         ],
         'users' => [
             'singular' => 'User',
@@ -148,7 +153,6 @@ return [
         'reopen' => 'Reopen',
         'close' => 'Close',
         'remove_reply' => 'Remove provider reply',
-        'hide_selected' => 'Hide selected',
         'approve' => 'Approve',
         'reject' => 'Reject',
         'suspend' => 'Suspend',
@@ -176,7 +180,6 @@ return [
         'send_now' => 'Send now',
         'reactivate' => 'Reactivate',
         'preview' => 'Preview',
-        'open' => 'Open',
         'internal_rating' => 'Internal rating',
         'add_option' => 'Add option',
     ],
@@ -239,6 +242,7 @@ return [
         'min_age' => 'Minimum age',
         'min_price' => 'Lowest price',
         'name' => 'Name',
+        'duration_days' => 'Plan length',
         'notes' => 'Notes',
         'number' => 'Number',
         'offline_payment_method' => 'Payment method',
@@ -515,6 +519,7 @@ return [
         'commissions' => 'Commissions',
         'ledger' => 'Ledger',
         'wallet' => 'Customer wallets',
+        'plans' => 'Plans & subscriptions',
         'reviews' => 'Reviews',
         'complaints' => 'Complaints',
         'content' => 'Content',
@@ -790,6 +795,8 @@ return [
         'home_section' => 'Home section',
         'page' => 'Page',
         'recommendation_rule' => 'Recommendation rule',
+        'plan' => 'Plan',
+        'provider_subscription' => 'Plan subscription',
     ],
     'services' => [
         'payment' => 'Payment gateway',
@@ -958,13 +965,36 @@ return [
     'providers' => [
         'approve_hint' => 'The provider will be approved and notified. Choose the approved activity types.',
         'members' => 'Team members',
-        'no_cr' => 'This provider has no commercial registration number.',
-        'not_verified' => 'Not verified',
         'pending_documents' => ':count document(s) are still pending review; review them before approving.',
     ],
     'documents' => [
         'expiring_soon' => 'Expiring soon',
         'expired' => 'Expired',
         'open_file' => 'Open file',
+    ],
+    'plans' => [
+        'days' => 'days',
+        'active_hint' => 'A switched-off plan is hidden from providers; subscriptions to it run until they end.',
+        'features' => 'Plan features',
+        'add_feature' => 'Add feature',
+        'feature' => 'Feature',
+        'limit' => 'Number',
+        'feature_days' => 'Feature length (days)',
+        'feature_days_hint' => 'Leave empty to keep it for the whole subscription.',
+        'for_days' => ':days days',
+        'subscribers' => 'Subscribed now',
+        'is_free' => 'Free plan',
+        'is_free_hint' => 'Every provider is on it automatically while it has no running paid plan. Its features never end, and there can be only one free plan.',
+        'free' => 'Free',
+        'no_end' => 'No end',
+    ],
+    'subscriptions' => [
+        'assign' => 'Give a plan',
+        'assign_hint' => 'The plan starts now; a plan the provider already has is replaced.',
+        'plan' => 'Plan',
+        'days_left' => ':days days left',
+        'activate' => 'Activate',
+        'activate_hint' => 'Activate once the payment is received and the provider is approved. It starts now and replaces any running plan.',
+        'stop' => 'Stop subscription',
     ],
 ];

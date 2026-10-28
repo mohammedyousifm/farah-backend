@@ -7,13 +7,16 @@ use App\Enums\UserStatus;
 use App\Enums\UserType;
 use App\Filament\Support\Fmt;
 use App\Models\City;
+use App\Models\Plan;
 use App\Models\Sector;
 use App\Models\User;
 use App\Rules\GoogleMapsLink;
 use App\Services\OtpService;
 use App\Services\ProviderService;
+use App\Services\SubscriptionService;
 use Filament\Auth\Pages\Register;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
@@ -25,7 +28,7 @@ use Illuminate\Support\Arr;
 use SensitiveParameter;
 
 /**
- * Sign-up for NEW providers: creates the user account and the provider
+ * Sign-up for NEW providers: the plan first, then the user account and the provider
  * (ProviderService::register → status pending), then signs the user in.
  */
 class RegisterProvider extends Register
@@ -49,7 +52,24 @@ class RegisterProvider extends Register
 
     public function form(Schema $schema): Schema
     {
+        $plans = Plan::active()->with('items')->orderByDesc('is_free')->orderBy('sort_order')->orderBy('price')->get();
+
         return $schema->components([
+            // The plan is chosen before the account exists (here, or from the website's ?plan= link). A paid plan
+            // becomes a request that starts once the provider is approved and has paid; until then: the free plan.
+            Section::make(__('provider.register.plan'))->description(__('provider.register.plan_hint'))
+                ->visible($plans->isNotEmpty())
+                ->schema([
+                    Radio::make('plan_id')->hiddenLabel()->required($plans->isNotEmpty())
+                        ->options($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->tr('name').' · '.($p->is_free
+                            ? __('provider.plans.free')
+                            : Fmt::sar($p->price).' / '.__('provider.plans.for_days', ['days' => $p->duration_days]))]))
+                        ->descriptions($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->items
+                            ->map(fn ($item) => $item->feature->getLabel().($item->value ? ' ('.__('provider.plans.up_to', ['count' => $item->value]).')' : ''))
+                            ->implode('، ')]))
+                        ->default(fn () => $plans->firstWhere('id', (int) request()->query('plan'))?->id ?? $plans->firstWhere('is_free', true)?->id)
+                        ->in($plans->pluck('id')->all()),
+                ]),
             Section::make(__('provider.register.account'))->columns(2)->schema([
                 $this->getNameFormComponent()->label(__('provider.fields.full_name')),
                 $this->getEmailFormComponent(),
@@ -72,10 +92,10 @@ class RegisterProvider extends Register
                 TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15'),
                 Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
                     ->options(fn () => City::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
-                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->required()->maxLength(500)
+                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->rule('url:http,https')->required()->maxLength(500)
                     ->rule(new GoogleMapsLink)->placeholder('https://maps.app.goo.gl/...')
                     ->helperText(__('provider.register.maps_url_hint'))->extraInputAttributes(['dir' => 'ltr']),
-                TextInput::make('website')->label(__('provider.register.website_optional'))->url()->maxLength(200)
+                TextInput::make('website')->label(__('provider.register.website_optional'))->url()->rule('url:http,https')->maxLength(200)
                     ->placeholder('https://')->extraInputAttributes(['dir' => 'ltr']),
                 CheckboxList::make('sector_ids')->label(__('provider.fields.sectors'))->required()->columns(2)->columnSpanFull()
                     ->options(fn () => Sector::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id'))
@@ -107,7 +127,13 @@ class RegisterProvider extends Register
         $provider['phone'] = $user->phone;
         $provider['sector_ids'] = array_map('intval', (array) ($provider['sector_ids'] ?? []));
 
-        app(ProviderService::class)->register($user, array_filter($provider, fn ($v) => $v !== null && $v !== ''));
+        $created = app(ProviderService::class)->register($user, array_filter($provider, fn ($v) => $v !== null && $v !== ''));
+
+        // A paid plan picked at sign-up goes to the platform as a request; the free plan needs nothing.
+        $plan = Plan::active()->find($data['plan_id'] ?? null);
+        if ($plan && ! $plan->is_free) {
+            app(SubscriptionService::class)->request($created, $plan, $user);
+        }
 
         return $user->fresh();
     }

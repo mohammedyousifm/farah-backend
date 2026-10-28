@@ -13,8 +13,10 @@ use App\Models\Dispute;
 use App\Models\HomeSection;
 use App\Models\Order;
 use App\Models\Page;
+use App\Models\Plan;
 use App\Models\Provider;
 use App\Models\ProviderDocument;
+use App\Models\ProviderSubscription;
 use App\Models\RecommendationRule;
 use App\Models\Refund;
 use App\Models\Review;
@@ -104,6 +106,8 @@ class AppServiceProvider extends ServiceProvider
             'home_section' => HomeSection::class,
             'page' => Page::class,
             'recommendation_rule' => RecommendationRule::class,
+            'plan' => Plan::class,
+            'provider_subscription' => ProviderSubscription::class,
         ]);
 
         // Super admins pass every permission check.

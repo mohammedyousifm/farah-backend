@@ -9,6 +9,9 @@ use App\Models\Activity;
 use App\Models\Provider;
 use App\Models\ProviderMember;
 use App\Models\Venue;
+use App\Services\AvailabilityService;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 /** Base for provider-app endpoints: the acting provider is resolved by the `provider` middleware. */
@@ -41,6 +44,19 @@ abstract class ProviderController extends Controller
     {
         if ($venue->status === VenueStatus::Suspended) {
             throw new BusinessException(__('api.venues.locked'), 'venue_locked');
+        }
+    }
+
+    /** ?date_from / ?date_to are calendar days on the venues' clock; the column holds UTC. */
+    protected function filterDays(Builder $query, ?string $from, ?string $to, string $column = 'created_at'): void
+    {
+        $timezone = AvailabilityService::timezone();
+
+        if ($from) {
+            $query->where($column, '>=', CarbonImmutable::parse($from, $timezone)->startOfDay()->utc());
+        }
+        if ($to) {
+            $query->where($column, '<', CarbonImmutable::parse($to, $timezone)->startOfDay()->addDay()->utc());
         }
     }
 }

@@ -103,10 +103,15 @@ class CatalogController extends Controller
     {
         $user = $request->user('sanctum');
         $cityId = $request->integer('city_id') ?: $user?->city_id;
+        // The phone's GPS point if sent, else the one saved in the profile: rows then list the nearest first.
+        $point = $request->filled('lat') && $request->filled('lng')
+            ? ['lat' => (float) $request->input('lat'), 'lng' => (float) $request->input('lng')]
+            : $user?->location();
 
-        // Signed-in people get personal recommendations and favourites, so only the guest feed is shared.
-        if ($user) {
-            return HomeSectionResource::collection($feed->build($user, $cityId))->response($request);
+        // Signed-in people get personal recommendations and favourites, and a position makes the feed personal too,
+        // so only the plain guest feed is shared.
+        if ($user || $point) {
+            return HomeSectionResource::collection($feed->build($user, $cityId, $point))->response($request);
         }
 
         return $this->cached($request, 'home.'.(int) $cityId, 180, fn () => HomeSectionResource::collection($feed->build(null, $cityId)));

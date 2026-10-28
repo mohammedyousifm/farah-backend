@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ProviderStatus;
 use App\Models\Provider;
+use App\Models\ProviderMember;
 use App\Models\User;
 use App\Support\PhoneScanner;
 use Illuminate\Contracts\View\View;
@@ -54,12 +56,20 @@ class PhoneScanController extends Controller
         $link = PhoneScanner::find($token);
         abort_if($link === null, 404);
 
-        $provider = Provider::find($link['provider_id']);
-        $user = User::find($link['user_id']);
+        $member = ProviderMember::with(['provider', 'user'])
+            ->where('provider_id', $link['provider_id'])
+            ->where('user_id', $link['user_id'])
+            ->first();
 
-        // The member who made the link must still be an active member of this provider.
-        abort_unless($provider && $user && $user->activeProviders()->whereKey($provider->id)->exists(), 404);
+        // The member who made the link must still be active, allowed to check customers in, and the
+        // provider not suspended (the link lives for a whole shift; rights can change meanwhile).
+        abort_unless(
+            $member?->provider && $member->user?->isActive()
+            && $member->allows('bookings.checkin')
+            && $member->provider->status !== ProviderStatus::Suspended,
+            404,
+        );
 
-        return [$provider, $user, $link['venue_id']];
+        return [$member->provider, $member->user, $link['venue_id']];
     }
 }

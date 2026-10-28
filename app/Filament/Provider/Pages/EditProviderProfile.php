@@ -4,6 +4,7 @@ namespace App\Filament\Provider\Pages;
 
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Provider;
 use App\Rules\GoogleMapsLink;
@@ -66,8 +67,8 @@ class EditProviderProfile extends EditTenantProfile
                 TextInput::make('name_en')->label(__('provider.fields.name_en'))->maxLength(150),
                 Textarea::make('bio_ar')->label(__('provider.fields.bio_ar'))->rows(4)->maxLength(3000),
                 Textarea::make('bio_en')->label(__('provider.fields.bio_en'))->rows(4)->maxLength(3000),
-                FileUpload::make('logo')->label(__('provider.fields.logo'))->image()->disk('public')->directory($dir)->maxSize(4096),
-                FileUpload::make('cover')->label(__('provider.fields.cover'))->image()->disk('public')->directory($dir)->maxSize(8192),
+                FileUpload::make('logo')->label(__('provider.fields.logo'))->acceptedFileTypes(Upload::IMAGES)->disk('public')->directory($dir)->maxSize(4096),
+                FileUpload::make('cover')->label(__('provider.fields.cover'))->acceptedFileTypes(Upload::IMAGES)->disk('public')->directory($dir)->maxSize(8192),
             ]),
             Section::make(__('provider.profile.legal'))->columns(3)->schema([
                 Text::make(fn () => __('provider.fields.status').': '.$provider->status?->getLabel()),
@@ -77,8 +78,8 @@ class EditProviderProfile extends EditTenantProfile
             Section::make(__('provider.profile.contact'))->columns(2)->schema([
                 TextInput::make('phone')->label(__('provider.fields.phone'))->tel()->maxLength(20),
                 TextInput::make('email')->label(__('provider.fields.email'))->email()->maxLength(120),
-                TextInput::make('website')->label(__('provider.fields.website'))->url()->maxLength(200),
-                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->maxLength(500)->rule(new GoogleMapsLink)
+                TextInput::make('website')->label(__('provider.fields.website'))->url()->rule('url:http,https')->maxLength(200),
+                TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->rule('url:http,https')->maxLength(500)->rule(new GoogleMapsLink)
                     ->placeholder('https://maps.app.goo.gl/...'),
                 Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
                     ->options(fn () => City::orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),

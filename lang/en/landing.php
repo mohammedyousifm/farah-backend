@@ -5,17 +5,28 @@ return [
     'meta_title' => 'Farah | Book your table, lane or court by the hour',
     'meta_description' => 'Farah is a Saudi platform for booking entertainment and game venues by the hour: billiards, bowling, gaming, karting, padel and more. List your venue and take bookings and payments per table, lane and room.',
     'switch_lang' => 'العربية',
-    'switch_lang_code' => 'ar',
 
     'nav' => [
         'how' => 'How it works',
         'features' => 'Features',
         'sectors' => 'Activities',
+        'plans' => 'Plans',
         'app' => 'Customer app',
         'faq' => 'FAQ',
     ],
     'sign_in' => 'Sign in',
     'join' => 'List your venue',
+    'plans' => [
+        'title' => 'Plans for store owners',
+        'subtitle' => 'Start free, and move up whenever you want more visibility and more activities.',
+        'free' => 'Free',
+        'currency' => 'SAR',
+        'days' => ':days days',
+        'up_to' => 'up to :count',
+        'start_free' => 'Start free',
+        'choose' => 'Start with this plan',
+        'note' => 'You choose your plan when you sign up. A paid plan starts once your account is approved and the payment confirmed; until then you are on the free plan.',
+    ],
 
     'hero' => [
         'badge' => 'For billiards halls, bowling centres, gaming lounges, karting tracks and courts',
@@ -86,7 +97,6 @@ return [
         'get_it_on' => 'Get it on',
     ],
 
-    'currency' => 'SAR',
     'phone_cards' => ['Billiards · Table 3', 'Bowling · Lane 2', 'PlayStation · Room 4'],
 
     'stats' => [

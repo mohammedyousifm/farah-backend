@@ -53,13 +53,15 @@ class DocumentsRelationManager extends RelationManager
         return $schema->columns(2)->components([
             Select::make('type')->label(__('admin.fields.document_type'))->options(DocumentType::class)->required(),
             Select::make('sector_id')->label(__('admin.fields.sector'))
-                ->options(fn () => $this->getOwnerRecord()->sectors()->pluck('sectors.name_ar', 'sectors.id'))->placeholder('-'),
-            TextInput::make('title')->label(__('admin.fields.title')),
-            TextInput::make('number')->label(__('admin.fields.document_number')),
+                ->options(fn () => $this->getOwnerRecord()->sectors()->pluck('sectors.'.Fmt::col('name'), 'sectors.id'))->placeholder('-'),
+            TextInput::make('title')->label(__('admin.fields.title'))->maxLength(150),
+            TextInput::make('number')->label(__('admin.fields.document_number'))->maxLength(50),
             DatePicker::make('issued_at')->label(__('admin.fields.issued_at')),
             DatePicker::make('expires_at')->label(__('admin.fields.expires_at')),
-            FileUpload::make('file_path')->label(__('admin.fields.file'))->required()->disk(ProviderDocument::DISK)->visibility('private')->directory('documents')
-                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']), // not image/*: that lets SVG (a script carrier) in->maxSize(10240)->columnSpanFull(),
+            // Private disk, same folder as the provider's own uploads. Not image/*: that lets SVG (a script carrier) in.
+            FileUpload::make('file_path')->label(__('admin.fields.file'))->required()->columnSpanFull()
+                ->disk(ProviderDocument::DISK)->visibility('private')->directory(fn () => 'providers/'.$this->getOwnerRecord()->getKey().'/documents')
+                ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])->maxSize(10240),
         ]);
     }
 

@@ -114,6 +114,14 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
             Route::get('sectors', [Provider\SectorController::class, 'index'])->name('sectors.index');
             Route::get('sector-requests', [Provider\SectorController::class, 'requests'])->name('sector-requests.index');
 
+            // Plan (package): a paid plan is a request an admin activates; the free plan needs nothing
+            Route::get('plans', [Provider\PlanController::class, 'plans'])->name('plans.index');
+            Route::get('subscription', [Provider\PlanController::class, 'subscription'])->middleware('provider:finance.view')->name('subscription.show');
+            Route::middleware(['provider:profile.manage', 'throttle:actions'])->group(function () {
+                Route::post('subscription', [Provider\PlanController::class, 'requestPlan'])->name('subscription.request');
+                Route::delete('subscription/pending', [Provider\PlanController::class, 'cancelRequest'])->name('subscription.cancel-request');
+            });
+
             // Venues: working hours, gallery, activities and their resources
             Route::get('venues', [Provider\VenueController::class, 'index'])->name('venues.index');
             Route::get('venues/{venue}', [Provider\VenueController::class, 'show'])->whereNumber('venue')->name('venues.show');

@@ -26,6 +26,7 @@ class ProviderSummaryResource extends JsonResource
             'logo_url' => Thumb::url($this->logo, Thumb::LOGO),
             'rating_avg' => $this->rating_avg,
             'rating_count' => $this->rating_count,
+            'distance_km' => isset($this->distance_km) ? round((float) $this->distance_km, 1) : null,
         ];
     }
 }

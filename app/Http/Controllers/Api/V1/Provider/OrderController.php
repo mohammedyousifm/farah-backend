@@ -2,13 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1\Provider;
 
-use App\Enums\VenueStatus;
-use App\Exceptions\BusinessException;
 use App\Http\Requests\Api\Provider\CheckInRequest;
 use App\Http\Requests\Api\Provider\OfflineOrderRequest;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\OrderResource;
-use App\Models\Venue;
 use App\Services\CheckInService;
 use App\Services\OrderService;
 use App\Support\Like;
@@ -23,6 +20,8 @@ class OrderController extends ProviderController
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date']]);
+
         $orders = $this->provider($request)->orders()
             ->with(self::RELATIONS)
             ->when($request->integer('venue_id'), fn ($q, $id) => $q->where('venue_id', $id))
@@ -32,8 +31,7 @@ class OrderController extends ProviderController
                 ->orWhere('customer_name', 'like', Like::contains($term))
                 ->orWhere('customer_phone', 'like', Like::contains($term))
                 ->orWhereHas('bookings', fn ($b) => $b->where('code', strtoupper($term)))))
-            ->when($request->date_from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->date_to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+            ->tap(fn ($q) => $this->filterDays($q, $request->date_from, $request->date_to))
             ->latest()
             ->paginate(min($request->integer('per_page', 20) ?: 20, 50));
 
@@ -55,16 +53,15 @@ class OrderController extends ProviderController
      */
     public function offline(OfflineOrderRequest $request, OrderService $orders): JsonResponse
     {
-        $provider = $this->provider($request);
-        $lines = $request->lines();
-
-        // A venue suspended by the platform takes no new bookings, not even at the counter.
-        if (Venue::where('status', VenueStatus::Suspended)
-            ->whereHas('activities', fn ($q) => $q->whereIn('activities.id', array_column($lines, 'activity_id')))->exists()) {
-            throw new BusinessException(__('api.bookings.not_bookable'), 'not_bookable');
-        }
-
-        $order = $orders->createOffline($provider, $lines, (array) $request->input('customer'), $request->payment_method, $request->user());
+        // Only the validated customer fields: a counter sale is never attached to an app account.
+        // OrderService refuses a venue that is not live (draft, in review or suspended).
+        $order = $orders->createOffline(
+            $this->provider($request),
+            $request->lines(),
+            (array) $request->validated('customer', []),
+            $request->payment_method,
+            $request->user(),
+        );
 
         return response()->json([
             'message' => __('api.orders.offline_created'),

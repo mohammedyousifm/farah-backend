@@ -21,7 +21,7 @@ class ProviderAccess
      * Areas a provider can use before approval. The store ("venues") is one of them: a new provider enters
      * the store's details and activities first, then sends one request for the platform to review.
      */
-    public const ONBOARDING_AREAS = ['dashboard', 'profile', 'documents', 'sectors', 'team', 'venues'];
+    public const ONBOARDING_AREAS = ['dashboard', 'profile', 'documents', 'sectors', 'team', 'venues', 'plans'];
 
     public static function provider(): ?Provider
     {
@@ -70,11 +70,6 @@ class ProviderAccess
         }
 
         return $permission === null ? (bool) $member->is_active : $member->allows($permission);
-    }
-
-    public static function isOwner(): bool
-    {
-        return static::member()?->role === 'owner';
     }
 
     public static function onboarding(): bool

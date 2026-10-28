@@ -136,6 +136,21 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
 .chips { display: flex; flex-wrap: wrap; gap: .35rem; margin: .8rem 0 0; padding: 0; list-style: none; }
 .chip { font-size: .78rem; padding: .15rem .6rem; border-radius: 999px; background: rgba(255,255,255,.07); color: var(--muted); }
 
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 1rem; align-items: stretch; }
+.plan { display: flex; flex-direction: column; padding: 1.6rem; border-radius: var(--radius); background: var(--card); border: 1px solid var(--line); transition: border-color .2s, transform .2s; }
+.plan:hover { border-color: rgba(123,47,247,.45); transform: translateY(-2px); }
+.plan h3 { margin: 0 0 .5rem; font-size: 1.15rem; }
+.plan-price { font-size: 1.9rem; font-weight: 700; line-height: 1.2; margin-bottom: .6rem; }
+.plan-price small { font-size: .85rem; font-weight: 400; color: var(--muted); }
+.plan.is-free .plan-price { color: #34d399; }
+.plan > p { margin: 0 0 1rem; color: var(--muted); font-size: .92rem; }
+.plan ul { list-style: none; padding: 0; margin: 0 0 1.4rem; display: grid; gap: .5rem; font-size: .93rem; }
+.plan li { display: flex; gap: .5rem; align-items: flex-start; }
+.plan li .ico { width: 1.1rem; height: 1.1rem; flex-shrink: 0; margin-top: .2rem; color: #34d399; }
+.plan li small { color: var(--muted); }
+.plan .btn { margin-top: auto; justify-content: center; }
+.plans-note { text-align: center; color: var(--muted); font-size: .9rem; margin: 1.5rem 0 0; }
+
 .app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3rem; align-items: center; padding: 3rem; border-radius: 2rem; border: 1px solid var(--line);
     background: radial-gradient(30rem 20rem at 100% 0%, rgba(123,47,247,.28), transparent 60%), radial-gradient(30rem 20rem at 0% 100%, rgba(249,178,51,.16), transparent 60%), var(--bg-2); }
 .app h2 { font-size: clamp(1.6rem, 3vw, 2.3rem); margin: 0 0 .7rem; line-height: 1.3; }
@@ -335,6 +350,53 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
             @endif
         </div>
     </section>
+
+    {{-- Plans for store owners: the choice is made here or on the sign-up form, before the account exists. --}}
+    @if ($plans->isNotEmpty())
+        <section class="block" id="plans" aria-labelledby="plans-title">
+            <div class="wrap">
+                <div class="sec-head">
+                    <h2 id="plans-title">{{ __('landing.plans.title') }}</h2>
+                    <p>{{ __('landing.plans.subtitle') }}</p>
+                </div>
+                <div class="plans">
+                    @foreach ($plans as $plan)
+                        <div @class(['plan', 'is-free' => $plan->is_free])>
+                            <h3>{{ $plan->tr('name') }}</h3>
+                            <div class="plan-price">
+                                @if ($plan->is_free)
+                                    {{ __('landing.plans.free') }}
+                                @else
+                                    <span class="ltr">{{ number_format($plan->price) }}</span> {{ __('landing.plans.currency') }}
+                                    <small>/ {{ __('landing.plans.days', ['days' => $plan->duration_days]) }}</small>
+                                @endif
+                            </div>
+                            @if ($plan->tr('description'))
+                                <p>{{ $plan->tr('description') }}</p>
+                            @endif
+                            <ul>
+                                @foreach ($plan->items as $item)
+                                    <li>
+                                        {!! $icon('check-circle') !!}
+                                        <span>
+                                            {{ $item->feature->getLabel() }}@if ($item->value) ({{ __('landing.plans.up_to', ['count' => $item->value]) }})@endif
+                                            @if (! $plan->is_free && $item->days && $item->days < $plan->duration_days)
+                                                <small>· {{ __('landing.plans.days', ['days' => $item->days]) }}</small>
+                                            @endif
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            <a @class(['btn', 'btn-primary' => ! $plan->is_free, 'btn-ghost' => $plan->is_free]) href="{{ $registerUrl }}?plan={{ $plan->id }}">
+                                {{ $plan->is_free ? __('landing.plans.start_free') : __('landing.plans.choose') }}
+                            </a>
+                        </div>
+                    @endforeach
+                </div>
+                <p class="plans-note">{{ __('landing.plans.note') }}</p>
+            </div>
+        </section>
+    @endif
 
     <section class="block" id="app" aria-labelledby="app-title">
         <div class="wrap">

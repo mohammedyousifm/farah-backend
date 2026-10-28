@@ -69,23 +69,4 @@ class SectorField extends Model
     {
         return $this->belongsTo(Sector::class);
     }
-
-    /** Laravel validation rules for a value submitted for this field. */
-    public function validationRules(): array
-    {
-        $rules = [$this->is_required ? 'required' : 'nullable'];
-        $values = collect($this->options ?? [])->pluck('value')->all();
-
-        return array_merge($rules, match ($this->type) {
-            'number' => ['numeric'],
-            'boolean' => ['boolean'],
-            'date' => ['date'],
-            'time' => ['date_format:H:i'],
-            'url' => ['url'],
-            'select' => ['in:'.implode(',', $values)],
-            'multiselect' => ['array'],
-            'textarea' => ['string', 'max:5000'],
-            default => ['string', 'max:255'],
-        });
-    }
 }

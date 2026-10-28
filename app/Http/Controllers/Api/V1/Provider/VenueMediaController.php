@@ -23,6 +23,7 @@ class VenueMediaController extends ProviderController
     public function store(VenueMediaRequest $request, int $venue): JsonResponse
     {
         $model = $this->venue($request, $venue);
+        $this->assertEditable($model);
         $sort = $request->filled('sort_order') ? $request->integer('sort_order') : ((int) $model->media()->max('sort_order') + 1);
 
         if ($request->hasFile('file')) {
@@ -50,6 +51,7 @@ class VenueMediaController extends ProviderController
     public function reorder(MediaReorderRequest $request, int $venue): AnonymousResourceCollection
     {
         $model = $this->venue($request, $venue);
+        $this->assertEditable($model);
         $own = $model->media()->pluck('id')->all();
 
         DB::transaction(function () use ($request, $model, $own) {

@@ -153,7 +153,7 @@ class OrderPaymentServiceTest extends ServiceTestCase
     {
         $venue = $this->venue($this->provider());
         [$order, $payment] = $this->checkout($this->customer(), $venue, 1);
-        app(OrderService::class)->cancelUnpaid($order, 'customer_cancelled');
+        app(OrderService::class)->expire($order);
         app(VenueService::class)->suspend($venue, $this->admin(), 'licence expired');
 
         $this->signedWebhook($payment, 'evt_suspended_venue');
@@ -177,32 +177,34 @@ class OrderPaymentServiceTest extends ServiceTestCase
         $this->assertSame(0, BookingSlot::count());
     }
 
-    public function test_payment_after_customer_cancel_takes_the_slots_again(): void
+    public function test_payment_after_expiry_takes_the_slots_again(): void
     {
         $venue = $this->venue($this->provider());
         [$order, $payment] = $this->checkout($this->customer(), $venue, 2);
-        app(OrderService::class)->cancelUnpaid($order, 'customer_cancelled');
+        app(OrderService::class)->expire($order);
         $this->assertSame(0, BookingSlot::count());
-        $this->assertSame(BookingStatus::Cancelled, $order->bookings()->first()->status);
+        $this->assertSame(BookingStatus::Expired, $order->bookings()->first()->status);
 
-        $this->signedWebhook($payment, 'evt_after_cancel');
+        $this->signedWebhook($payment, 'evt_after_expiry');
 
         $this->assertSame(OrderStatus::Confirmed, $order->fresh()->status);
         $this->assertSame(BookingStatus::Confirmed, $order->bookings()->first()->status);
         $this->assertSame(2, BookingSlot::count());
     }
 
-    public function test_cancelling_is_refused_once_paid_and_reported_once_done(): void
+    public function test_expiry_leaves_paid_and_already_released_orders_alone(): void
     {
         $venue = $this->venue($this->provider());
         $orders = app(OrderService::class);
 
         [$pending] = $this->checkout($this->customer(), $venue, 1);
-        $orders->cancelUnpaid($pending, 'customer_cancelled');
-        $this->assertBusiness('order_already_cancelled', fn () => $orders->cancelUnpaid($pending->fresh(), 'again'));
+        $this->assertTrue($orders->expire($pending));
+        $this->assertFalse($orders->expire($pending->fresh()));
+        $this->assertSame(OrderStatus::Expired, $pending->fresh()->status);
 
         $paid = $this->paidOrder($venue, 1);
-        $this->assertBusiness('order_paid', fn () => $orders->cancelUnpaid($paid, 'too late'));
+        $this->assertFalse($orders->expire($paid));
+        $this->assertSame(OrderStatus::Confirmed, $paid->fresh()->status);
         $this->assertSame(1, BookingSlot::count());
     }
 

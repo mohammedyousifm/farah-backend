@@ -45,7 +45,7 @@ class ItemsRelationManager extends RelationManager
             TextInput::make('title_en')->label(__('admin.fields.title_en'))->maxLength(255),
             Select::make('media_type')->label(__('admin.fields.media_type'))->live()->placeholder('-')
                 ->options(collect(['image', 'video', 'gif'])->mapWithKeys(fn ($t) => [$t => __("admin.media_types.{$t}")])),
-            TextInput::make('media_url')->label(__('admin.fields.media_url'))->url()->maxLength(255)
+            TextInput::make('media_url')->label(__('admin.fields.media_url'))->url()->rule('url:http,https')->maxLength(255)
                 ->helperText(__('admin.hints.media_url')),
             FileUpload::make('media_path')->label(__('admin.fields.media_file'))->columnSpanFull()
                 ->disk('public')->directory('home')->maxSize(20480)
@@ -57,7 +57,7 @@ class ItemsRelationManager extends RelationManager
             Select::make('link_value')->label(__('admin.fields.link_target'))->searchable()->required()
                 ->visible(fn (Get $get) => in_array($get('link_type'), ['venue', 'category', 'sector', 'provider'], true))
                 ->options(fn (Get $get) => static::linkOptions((string) $get('link_type'))),
-            TextInput::make('link_value')->label(__('admin.fields.url'))->url()->required()->maxLength(255)
+            TextInput::make('link_value')->label(__('admin.fields.url'))->url()->rule('url:http,https')->required()->maxLength(255)
                 ->visible(fn (Get $get) => $get('link_type') === 'url'),
         ]);
     }

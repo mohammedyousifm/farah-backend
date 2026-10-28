@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\DB;
  *
  * Concurrency: every state change locks the order row first, and money that
  * is approved but not yet processed counts as reserved, so two admins (or an
- * admin and a provider cancellation) can never refund more than was paid.
+ * admin and a dispute resolution) can never refund more than was paid.
  */
 class RefundService
 {

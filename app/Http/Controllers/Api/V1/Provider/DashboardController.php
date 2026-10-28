@@ -27,12 +27,13 @@ class DashboardController extends ProviderController
         $canOrders = $member->allows('orders.view');
 
         $paid = fn () => $provider->orders()->whereIn('status', self::PAID);
-        $monthStart = now()->startOfMonth();
         $venuesByStatus = $provider->venues()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
 
-        // "Today" is the calendar day in the business timezone.
-        $dayStart = CarbonImmutable::now(AvailabilityService::timezone())->startOfDay();
+        // "Today" and "this month" are calendar periods in the business timezone (the columns hold UTC).
+        $local = CarbonImmutable::now(AvailabilityService::timezone());
+        $dayStart = $local->startOfDay();
         $today = [$dayStart->utc(), $dayStart->addDay()->utc()];
+        $monthStart = $local->startOfMonth()->utc();
         $live = [BookingStatus::Confirmed, BookingStatus::CheckedIn, BookingStatus::Completed];
         $bookings = fn () => Booking::where('provider_id', $provider->id);
 
@@ -60,7 +61,7 @@ class DashboardController extends ProviderController
                 )->resolve($request) : null,
             ],
             'orders' => $canOrders ? [
-                'today' => $paid()->whereDate('confirmed_at', today())->count(),
+                'today' => $paid()->where('confirmed_at', '>=', $today[0])->where('confirmed_at', '<', $today[1])->count(),
                 'this_month' => $paid()->where('confirmed_at', '>=', $monthStart)->count(),
                 'recent' => OrderResource::collection($provider->orders()->with(['venue.city', 'bookings.activity', 'bookings.resource'])->latest()->limit(5)->get())->resolve($request),
             ] : null,

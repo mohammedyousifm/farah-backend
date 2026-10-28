@@ -12,7 +12,8 @@ class SetApiLocale
     public function handle(Request $request, Closure $next): Response
     {
         $header = strtolower(substr((string) $request->header('Accept-Language'), 0, 2));
-        $locale = in_array($header, ['ar', 'en'], true) ? $header : ($request->user()?->locale ?? 'ar');
+        // Runs before auth:sanctum, so the bearer token is read through the sanctum guard here.
+        $locale = in_array($header, ['ar', 'en'], true) ? $header : ($request->user('sanctum')?->locale ?? 'ar');
 
         app()->setLocale(in_array($locale, ['ar', 'en'], true) ? $locale : 'ar');
 

@@ -6,8 +6,10 @@ use App\Http\Requests\Api\Provider\RegisterProviderRequest;
 use App\Http\Requests\Api\Provider\UpdateProviderProfileRequest;
 use App\Http\Resources\ProviderProfileResource;
 use App\Services\ProviderService;
+use App\Support\Thumb;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends ProviderController
 {
@@ -37,6 +39,10 @@ class ProfileController extends ProviderController
         foreach (['logo', 'cover'] as $image) {
             if ($request->hasFile($image)) {
                 $data[$image] = $request->file($image)->store("providers/{$provider->id}", 'public');
+                if ($provider->{$image}) {
+                    Storage::disk('public')->delete($provider->{$image});
+                    Thumb::forget($provider->{$image});
+                }
             }
         }
 

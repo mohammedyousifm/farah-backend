@@ -78,7 +78,7 @@ class PushCampaignResource extends Resource
                 Select::make('link_value')->label(__('admin.fields.link_target'))->searchable()->required()
                     ->visible(fn (Get $get) => in_array($get('link_type'), ['venue', 'category', 'sector', 'provider'], true))
                     ->options(fn (Get $get) => ItemsRelationManager::linkOptions((string) $get('link_type'))),
-                TextInput::make('link_value')->label(__('admin.fields.url'))->url()->required()->maxLength(255)
+                TextInput::make('link_value')->label(__('admin.fields.url'))->url()->rule('url:http,https')->required()->maxLength(255)
                     ->visible(fn (Get $get) => $get('link_type') === 'url'),
             ]),
         ]);

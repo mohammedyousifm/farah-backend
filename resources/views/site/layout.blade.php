@@ -18,6 +18,7 @@
         ['href' => $anchor('how'), 'label' => __('landing.nav.how')],
         ['href' => $anchor('features'), 'label' => __('landing.nav.features')],
         ['href' => $anchor('sectors'), 'label' => __('landing.nav.sectors')],
+        ['href' => $anchor('plans'), 'label' => __('landing.nav.plans')],
         ['href' => $anchor('app'), 'label' => __('landing.nav.app')],
         ['href' => $anchor('faq'), 'label' => __('landing.nav.faq')],
         ['href' => route('site.contact'), 'label' => __('site.nav.contact'), 'current' => request()->routeIs('site.contact')],

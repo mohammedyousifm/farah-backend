@@ -51,7 +51,7 @@ class BookingFlowTest extends ApiTestCase
                     'currency', 'expires_at', 'confirmed_at', 'created_at', 'venue' => ['id', 'name', 'cover_url'],
                     'bookings' => [['id', 'code', 'status' => ['value', 'label', 'color'], 'name', 'starts_at', 'ends_at', 'slots', 'slot_minutes',
                         'unit_price', 'total', 'checked_in_at', 'activity' => ['id', 'name'], 'resource' => ['id', 'name'],
-                        'venue' => ['id', 'name', 'cover_url', 'address', 'lat', 'lng', 'phone', 'city' => ['name']],
+                        'venue' => ['id', 'name', 'cover_url', 'address', 'lat', 'lng', 'city' => ['name']],
                         'order' => ['id', 'number', 'status']]]],
                 'payment' => ['reference', 'checkout_url', 'amount', 'status' => ['value']],
             ]])
@@ -67,7 +67,7 @@ class BookingFlowTest extends ApiTestCase
             ->assertJsonPath('data.order.bookings.0.unit_price', 100)
             ->assertJsonPath('data.order.bookings.0.total', 200)
             ->assertJsonPath('data.order.bookings.0.resource.id', $table->id)
-            ->assertJsonPath('data.order.bookings.0.venue.phone', '0112223344')
+            ->assertJsonMissingPath('data.order.bookings.0.venue.phone')
             ->assertJsonPath('data.payment.status.value', 'initiated')
             ->assertJsonPath('data.payment.amount', 200);
 

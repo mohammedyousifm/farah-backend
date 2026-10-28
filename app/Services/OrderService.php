@@ -58,11 +58,16 @@ class OrderService
         ]));
     }
 
-    /** Provider books for a customer at the counter (cash / transfer / POS). Confirmed immediately. */
+    /**
+     * Provider books for a customer at the counter (cash / transfer / POS). Confirmed immediately.
+     * A counter sale belongs to no app account: the customer is just a name and a phone.
+     *
+     * @param  array{name?: ?string, phone?: ?string, email?: ?string, notes?: ?string}  $customer
+     */
     public function createOffline(Provider $provider, array $lines, array $customer, string $method, User $by): Order
     {
         $order = DB::transaction(fn () => $this->buildOrder($lines, [
-            'user_id' => $customer['user_id'] ?? null,
+            'user_id' => null,
             'channel' => 'offline',
             'status' => OrderStatus::PendingPayment,
             'customer_name' => $customer['name'] ?? null,
@@ -81,7 +86,7 @@ class OrderService
      * bookings, write ledger entries and notify both sides. Idempotent and safe against
      * concurrent webhooks / the expiry job (the order row is locked).
      *
-     * A payment that arrives after the hold was released (timeout or cancel) takes the
+     * A payment that arrives after the hold was released (payment window ended) takes the
      * same slots again if they are still free, otherwise a BusinessException is thrown
      * and the caller refunds the payment.
      * When $payment is given and the order was already paid by another payment,
@@ -150,30 +155,27 @@ class OrderService
     }
 
     /**
-     * Release an unpaid order and free its slots (row-locked against a concurrent payment).
-     * Nobody cancels an order by hand: this runs when the payment window ends.
+     * The payment window of an unpaid order ended: release it and free its slots (row-locked against a
+     * concurrent payment). Nobody cancels an order by hand. False when it was paid or released meanwhile.
      */
-    public function cancelUnpaid(Order $order, ?string $reason = null, OrderStatus $status = OrderStatus::Cancelled): void
+    public function expire(Order $order): bool
     {
-        DB::transaction(function () use ($order, $reason, $status) {
+        $expired = DB::transaction(function () use ($order) {
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-            if (in_array($locked->status, [OrderStatus::Cancelled, OrderStatus::Expired], true)) {
-                // Double tap / second device: tell the customer it is already done, not that it was paid.
-                throw new BusinessException(__('api.orders.already_cancelled'), 'order_already_cancelled');
-            }
             if ($locked->status !== OrderStatus::PendingPayment) {
-                throw new BusinessException(__('api.orders.cannot_cancel_paid'), 'order_paid');
+                return false;
             }
 
-            $this->releaseBookings(
-                $locked->bookings,
-                $status === OrderStatus::Expired ? BookingStatus::Expired : BookingStatus::Cancelled,
-            );
-            $locked->update(['status' => $status, 'cancelled_at' => now(), 'cancel_reason' => $reason]);
+            $this->releaseBookings($locked->bookings, BookingStatus::Expired);
+            $locked->update(['status' => OrderStatus::Expired, 'cancelled_at' => now(), 'cancel_reason' => 'payment_timeout']);
+
+            return true;
         });
 
         $order->refresh();
+
+        return $expired;
     }
 
     /** Scheduler: drop holds whose payment window passed. */
@@ -184,11 +186,8 @@ class OrderService
             ->where('expires_at', '<', now())
             ->orderBy('id')
             ->each(function (Order $order) use (&$count) {
-                try {
-                    $this->cancelUnpaid($order, 'payment_timeout', OrderStatus::Expired);
+                if ($this->expire($order)) {
                     $count++;
-                } catch (BusinessException) {
-                    // paid or cancelled concurrently: nothing left to release
                 }
             });
 
@@ -256,7 +255,7 @@ class OrderService
     }
 
     /**
-     * Used by refunds and cancellations: mark bookings cancelled and put their slots back on sale.
+     * Used by refunds and expiry: mark bookings cancelled (or expired) and put their slots back on sale.
      *
      * @param  iterable<Booking>  $bookings
      */

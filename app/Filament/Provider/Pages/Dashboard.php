@@ -45,7 +45,7 @@ class Dashboard extends BaseDashboard
         ];
     }
 
-    /** The three things counter staff do all day, one click from the home page. */
+    /** What counter staff do all day (check-in, today's schedule), one click from the home page. */
     protected function getHeaderActions(): array
     {
         if (ProviderAccess::onboarding()) {

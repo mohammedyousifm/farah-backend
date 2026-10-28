@@ -282,7 +282,8 @@ class ProviderApiTest extends ApiTestCase
             'starts_at' => $this->slot()->toIso8601String(),
             'slots' => 2,
             'payment_method' => 'cash',
-            'customer' => ['name' => 'عميل حضوري', 'phone' => '0501231234'],
+            // A provider cannot hang a counter sale on somebody's app account.
+            'customer' => ['name' => 'عميل حضوري', 'phone' => '0501231234', 'user_id' => $provider->owner->id],
         ])->assertCreated()
             ->assertJsonPath('data.channel', 'offline')
             ->assertJsonPath('data.status.value', 'confirmed')
@@ -295,6 +296,7 @@ class ProviderApiTest extends ApiTestCase
             ->assertJsonPath('data.bookings.0.resource.id', $table->id);
 
         $order = Order::findOrFail($response->json('data.id'));
+        $this->assertNull($order->user_id);
         $this->assertSame(2, BookingSlot::where('resource_id', $table->id)->count());
 
         // Offline sale: no sale entry, only the commission owed by the provider.

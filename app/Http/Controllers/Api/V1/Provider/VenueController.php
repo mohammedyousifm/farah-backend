@@ -8,6 +8,7 @@ use App\Http\Requests\Api\Provider\VenueRequest;
 use App\Http\Resources\VenueResource;
 use App\Services\VenueService;
 use App\Support\Like;
+use App\Support\Thumb;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -63,6 +64,7 @@ class VenueController extends ProviderController
             $data['cover_image'] = $request->file('cover')->store("venues/{$model->provider_id}", 'public');
             if ($old) {
                 Storage::disk('public')->delete($old);
+                Thumb::forget($old);
             }
         }
 

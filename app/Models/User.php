@@ -153,13 +153,21 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'tracking_consent' => 'boolean',
             'has_sms_authentication' => 'boolean',
             'wallet_balance' => 'float',
+            'lat' => 'float',
+            'lng' => 'float',
+            'location_updated_at' => 'datetime',
         ];
+    }
+
+    /** The GPS point saved from the app, or null when the customer has not shared it. */
+    public function location(): ?array
+    {
+        return $this->lat !== null && $this->lng !== null ? ['lat' => $this->lat, 'lng' => $this->lng] : null;
     }
 
     /**
      * admin panel: active admins only. provider panel: active non-admin users with at
-     * least one active membership of a (non-deleted) provider. Admins reach the
-     * provider panel only through impersonation (they are then logged in as the owner).
+     * least one active membership of a (non-deleted) provider. Admins never enter the provider panel.
      */
     public function canAccessPanel(Panel $panel): bool
     {

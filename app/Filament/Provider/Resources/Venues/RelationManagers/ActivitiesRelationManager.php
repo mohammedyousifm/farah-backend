@@ -44,7 +44,15 @@ class ActivitiesRelationManager extends RelationManager
 
     protected static ?string $managePermission = 'venues.manage';
 
-    public const SLOT_MINUTES = [30, 60, 90, 120];
+    /** Booking lengths a provider can pick for a game: shorter than an hour, an hour, or longer. */
+    public const SLOT_MINUTES = [15, 20, 30, 45, 60, 90, 120, 180, 240];
+
+    public static function lengthLabel(int|string|null $minutes): string
+    {
+        $key = 'provider.venues.lengths.'.(int) $minutes;
+
+        return __($key) === $key ? __('provider.venues.minutes', ['count' => (int) $minutes]) : __($key);
+    }
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
@@ -74,11 +82,15 @@ class ActivitiesRelationManager extends RelationManager
             TextInput::make('name_en')->label(__('provider.fields.name_en'))->maxLength(120),
             TextInput::make('description_ar')->label(__('provider.fields.description_ar'))->maxLength(1000),
             TextInput::make('description_en')->label(__('provider.fields.description_en'))->maxLength(1000),
-            TextInput::make('price_per_hour')->label(__('provider.fields.price_per_hour'))->numeric()->minValue(0)->maxValue(1000000)->required()
+            TextInput::make('price_per_hour')->label(__('provider.fields.price_per_hour'))->numeric()->minValue(0)->maxValue(1000000)->required()->live(onBlur: true)
                 ->suffix(__('provider.currency'))->helperText(__('provider.venues.price_hint')),
-            Select::make('slot_minutes')->label(__('provider.fields.slot_minutes'))->required()->default(60)
-                ->options(collect(self::SLOT_MINUTES)->mapWithKeys(fn ($m) => [$m => __('provider.venues.minutes', ['count' => $m])]))
-                ->helperText(__('provider.venues.slot_hint')),
+            Select::make('slot_minutes')->label(__('provider.fields.slot_minutes'))->required()->default(60)->live()
+                // A length saved through the API that is not in the list stays selectable.
+                ->options(fn (?Activity $record) => collect(self::SLOT_MINUTES)->push($record?->slot_minutes)->filter()->unique()->sort()
+                    ->mapWithKeys(fn ($m) => [$m => self::lengthLabel($m)]))
+                ->helperText(fn (Get $get) => is_numeric($get('price_per_hour')) && $get('slot_minutes')
+                    ? __('provider.venues.slot_price_hint', ['price' => Fmt::sar(round((float) $get('price_per_hour') * (int) $get('slot_minutes') / 60, 2))])
+                    : __('provider.venues.slot_hint')),
             TextInput::make('min_slots')->label(__('provider.fields.min_slots'))->integer()->minValue(1)->maxValue(48)->default(1)->required(),
             TextInput::make('max_slots')->label(__('provider.fields.max_slots'))->integer()->minValue(1)->maxValue(48)->default(4)->required()
                 ->gte('min_slots')->helperText(__('provider.venues.slots_hint')),
@@ -106,7 +118,7 @@ class ActivitiesRelationManager extends RelationManager
                 TextColumn::make('sector.'.Fmt::col('name'))->label(__('provider.fields.activity_type'))->badge()->color('gray'),
                 TextColumn::make('price_per_hour')->label(__('provider.fields.price_per_hour'))->formatStateUsing(fn ($state) => Fmt::sar($state)),
                 TextColumn::make('slot_minutes')->label(__('provider.fields.slot_minutes'))
-                    ->formatStateUsing(fn ($state) => __('provider.venues.minutes', ['count' => $state]))
+                    ->formatStateUsing(fn ($state) => self::lengthLabel($state))
                     ->description(fn (Activity $r) => Fmt::sar($r->slotPrice())),
                 TextColumn::make('slots_range')->label(__('provider.fields.slots_range'))
                     ->state(fn (Activity $r) => $r->min_slots.' - '.$r->max_slots),

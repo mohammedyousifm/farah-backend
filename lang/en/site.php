@@ -8,7 +8,6 @@ return [
     'a11y' => [
         'skip' => 'Skip to content',
         'main_nav' => 'Main navigation',
-        'footer_nav' => 'Site links',
         'menu_open' => 'Open menu',
         'menu_close' => 'Close menu',
         'breadcrumb' => 'Breadcrumb',
@@ -87,5 +86,21 @@ return [
             'title' => 'Back soon',
             'body' => 'We are doing some maintenance to improve the platform. Thanks for your patience, we will be back shortly.',
         ],
+    ],
+    // Public store page (/places/{slug}), for stores whose plan includes search-engine visibility.
+    'place' => [
+        'about' => 'About',
+        'activities' => 'Activities and prices',
+        'hours' => 'Opening hours',
+        'closed' => 'Closed',
+        'per_hour' => ':price :currency / hour',
+        'from_price' => 'From :price :currency an hour',
+        'currency' => 'SAR',
+        'book_title' => 'Book your time',
+        'book_body' => 'Pick the activity and the time that suit you and book in a minute in the Farah app.',
+        'get_app' => 'Get the Farah app',
+        'directions' => 'Directions on the map',
+        'fallback_description' => 'Book :name in :city by the hour with the Farah app.',
+        'days' => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     ],
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\PlanFeature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Customer\AvailabilityRequest;
 use App\Http\Requests\Api\Customer\VenueIndexRequest;
@@ -14,7 +15,10 @@ use App\Models\Provider;
 use App\Models\Venue;
 use App\Services\AvailabilityService;
 use App\Services\RecommendationService;
+use App\Services\SubscriptionService;
+use App\Support\Geo;
 use App\Support\Like;
+use App\Support\Promoted;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +37,7 @@ class VenueController extends Controller
                 ->orWhere('name_en', 'like', Like::contains($q))
                 ->orWhere('summary_ar', 'like', Like::contains($q))
                 ->orWhere('address', 'like', Like::contains($q))
+                ->orWhereHas('city', fn ($c) => $c->where('name_ar', 'like', Like::contains($q))->orWhere('name_en', 'like', Like::contains($q)))
                 ->orWhereHas('activities', fn ($a) => $a->where('is_active', true)
                     ->where(fn ($n) => $n->where('name_ar', 'like', Like::contains($q))->orWhere('name_en', 'like', Like::contains($q)))));
         }
@@ -53,16 +58,20 @@ class VenueController extends Controller
             ->when($request->audience, fn ($q, $v) => $q->whereIn('audience', [$v, 'all']))
             ->when($request->boolean('featured'), fn ($q) => $q->where('is_featured', true));
 
-        $hasGeo = $request->filled('lat') && $request->filled('lng');
+        // The phone's point if it sent one, else the location saved in the customer's profile.
+        $point = $request->filled('lat') && $request->filled('lng')
+            ? ['lat' => (float) $request->lat, 'lng' => (float) $request->lng]
+            : $request->user('sanctum')?->location();
+        $hasGeo = $point !== null;
         if ($hasGeo) {
-            $this->applyDistance($query, (float) $request->lat, (float) $request->lng, (float) ($request->radius ?? 50));
+            Geo::withDistance($query, $point['lat'], $point['lng'], $request->filled('radius') ? (float) $request->radius : null);
         }
 
         match ($request->input('sort', $hasGeo ? 'nearest' : 'recommended')) {
             'latest' => $query->latest('published_at'),
             'price' => $query->orderBy('min_price'),
             'rating' => $query->orderByDesc('rating_avg')->orderByDesc('rating_count'),
-            'nearest' => $hasGeo ? $query->orderBy('distance_km') : $this->recommended($query),
+            'nearest' => $hasGeo ? Geo::orderByDistance($query) : $this->recommended($query),
             default => $this->recommended($query),
         };
 
@@ -165,9 +174,11 @@ class VenueController extends Controller
         return new ProviderProfileResource($provider);
     }
 
-    /** Featured first, then the best rated. */
+    /** Stores whose plan includes "top of search" first, then featured, then the best rated. */
     private function recommended(Builder $query): Builder
     {
+        Promoted::first($query, app(SubscriptionService::class)->providerIdsWith(PlanFeature::SearchBoost), 'venues.provider_id');
+
         return $query->orderByDesc('is_featured')->orderByDesc('rating_avg')->orderByDesc('rating_count');
     }
 
@@ -178,25 +189,5 @@ class VenueController extends Controller
         return $userId
             ? $query->withExists(['favoritedBy as is_favorite' => fn ($q) => $q->where('users.id', $userId)])
             : $query;
-    }
-
-    /** Haversine distance (km) as a select column + radius filter. */
-    private function applyDistance(Builder $query, float $lat, float $lng, float $radius): void
-    {
-        $formula = '(6371 * ACOS(LEAST(1, COS(RADIANS(?)) * COS(RADIANS(venues.lat)) * COS(RADIANS(venues.lng) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(venues.lat)))))';
-
-        if ($query->getQuery()->columns === null) {
-            $query->select('venues.*');
-        }
-
-        // One degree of latitude is about 111 km: an indexable box first, the exact circle inside it.
-        $dLat = $radius / 111;
-        $dLng = $radius / (111 * max(0.1, cos(deg2rad($lat))));
-
-        $query->whereNotNull('venues.lat')
-            ->whereBetween('venues.lat', [$lat - $dLat, $lat + $dLat])
-            ->whereBetween('venues.lng', [$lng - $dLng, $lng + $dLng])
-            ->selectRaw("{$formula} as distance_km", [$lat, $lng, $lat])
-            ->whereRaw("{$formula} <= ?", [$lat, $lng, $lat, $radius]);
     }
 }

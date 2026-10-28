@@ -33,17 +33,43 @@ class KpiService
     /** Booking statuses that count as sold play time (paid and not cancelled). */
     public const PLAYABLE = ['confirmed', 'checked_in', 'completed'];
 
-    /** @return array{0: CarbonInterface, 1: CarbonInterface} */
+    /**
+     * Whole calendar days in the business timezone (the last 30 by default). The dates come back on that
+     * clock for display; the queries below compare them with the UTC columns through utc().
+     *
+     * @return array{0: CarbonInterface, 1: CarbonInterface}
+     */
     public static function range(?string $from = null, ?string $to = null): array
     {
-        $start = $from ? Carbon::parse($from)->startOfDay() : now()->subDays(29)->startOfDay();
-        $end = $to ? Carbon::parse($to)->endOfDay() : now()->endOfDay();
+        $timezone = AvailabilityService::timezone();
+        $start = $from ? Carbon::parse($from, $timezone)->startOfDay() : Carbon::now($timezone)->subDays(29)->startOfDay();
+        $end = $to ? Carbon::parse($to, $timezone)->endOfDay() : Carbon::now($timezone)->endOfDay();
 
         return [$start, $end];
     }
 
+    /**
+     * The range as UTC instants, for comparing with timestamp columns (a binding keeps a date's own clock).
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public static function utc(CarbonInterface $from, CarbonInterface $to): array
+    {
+        return [Carbon::instance($from)->utc(), Carbon::instance($to)->utc()];
+    }
+
+    /** SQL for the business-timezone calendar date of a UTC timestamp column. */
+    public static function localDate(string $column): string
+    {
+        // The current offset of the business timezone (Asia/Riyadh keeps +03:00 all year).
+        $offset = Carbon::now(AvailabilityService::timezone())->format('P');
+
+        return "DATE(CONVERT_TZ({$column}, '+00:00', '{$offset}'))";
+    }
+
     public function summary(CarbonInterface $from, CarbonInterface $to): array
     {
+        [$from, $to] = self::utc($from, $to);
         $paid = Order::whereIn('status', Order::PAID_STATUSES)->whereBetween('confirmed_at', [$from, $to]);
 
         $gmv = (float) (clone $paid)->sum('total');
@@ -71,7 +97,7 @@ class KpiService
     /** Paid bookings that start today on the venues' clock (business timezone). Not range-aware. */
     public function bookingsToday(): int
     {
-        $day = Carbon::now(config('farah.timezone', 'Asia/Riyadh'));
+        $day = Carbon::now(AvailabilityService::timezone());
 
         return Booking::whereIn('status', self::PLAYABLE)
             ->whereBetween('starts_at', [$day->copy()->startOfDay()->utc(), $day->copy()->endOfDay()->utc()])
@@ -106,18 +132,19 @@ class KpiService
         return $counts;
     }
 
-    /** Daily GMV and commission between two dates. */
+    /** Daily GMV and commission between two dates (days on the business clock). */
     public function salesSeries(CarbonInterface $from, CarbonInterface $to): array
     {
         $rows = Order::whereIn('status', Order::PAID_STATUSES)
-            ->whereBetween('confirmed_at', [$from, $to])
-            ->selectRaw('DATE(confirmed_at) as d, SUM(total) as gmv, SUM(commission_amount) as commission, COUNT(*) as orders')
+            ->whereBetween('confirmed_at', self::utc($from, $to))
+            ->selectRaw(self::localDate('confirmed_at').' as d, SUM(total) as gmv, SUM(commission_amount) as commission, COUNT(*) as orders')
             ->groupBy('d')
             ->get()
             ->keyBy('d');
 
+        $timezone = AvailabilityService::timezone();
         $labels = $gmv = $commission = $orders = [];
-        for ($day = $from->copy()->startOfDay(); $day->lte($to); $day->addDay()) {
+        for ($day = Carbon::instance($from)->setTimezone($timezone)->startOfDay(); $day->lte($to); $day->addDay()) {
             $key = $day->toDateString();
             $labels[] = $day->format('m-d');
             $gmv[] = round((float) ($rows[$key]->gmv ?? 0), 2);
@@ -142,7 +169,7 @@ class KpiService
             ->join('sectors', 'sectors.id', '=', 'activities.sector_id')
             ->whereIn('orders.status', Order::PAID_STATUSES)
             ->whereIn('bookings.status', self::PLAYABLE)
-            ->whereBetween('orders.confirmed_at', [$from, $to])
+            ->whereBetween('orders.confirmed_at', self::utc($from, $to))
             ->groupBy('sectors.id', $column)
             ->selectRaw("{$column} as label, COUNT(DISTINCT orders.id) as orders, COUNT(*) as bookings, SUM(bookings.total) as gmv")
             ->orderByDesc('gmv')

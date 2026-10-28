@@ -340,7 +340,7 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $this->asOwner();
 
         $this->assertSame(
-            ['venues.manage', 'orders.view', 'orders.manage', 'orders.offline', 'bookings.checkin', 'finance.view', 'team.manage', 'reviews.reply', 'profile.manage'],
+            ['venues.manage', 'orders.view', 'orders.offline', 'bookings.checkin', 'finance.view', 'team.manage', 'reviews.reply', 'profile.manage'],
             ProviderMember::PERMISSIONS,
         );
         foreach (MemberResource::permissionOptions() as $permission => $label) {

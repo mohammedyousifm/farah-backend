@@ -130,7 +130,7 @@ return [
 
     'temporary_file_upload' => [
         'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK'), // Example: 'local', 's3'             | Default: 'default'
-        // Farah: event media (video) may be up to 50MB (MediaRelationManager ->maxSize(51200)).
+        // Farah: venue media (video) may be up to 50MB (MediaRelationManager ->maxSize(51200)).
         'rules' => ['required', 'file', 'max:51200'],
         'directory' => null,                                  // Example: 'tmp'                     | Default: 'livewire-tmp'
         'middleware' => null,                                 // Example: 'throttle:5,1'            | Default: 'throttle:60,1'

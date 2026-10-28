@@ -9,7 +9,7 @@ use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
 use App\Models\Review;
-use App\Notifications\SystemNotification;
+use App\Services\ReviewModerationService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Resources\Resource;
@@ -91,12 +91,7 @@ class ReviewResource extends Resource
                     ->fillForm(fn (Review $r) => ['reply' => $r->provider_reply])
                     ->schema([Textarea::make('reply')->label(__('provider.fields.provider_reply'))->required()->maxLength(2000)->rows(4)])
                     ->action(fn (Review $record, array $data) => Act::run(
-                        function () use ($record, $data) {
-                            $record->update(['provider_reply' => $data['reply'], 'replied_at' => now()]);
-                            if ($record->user) {
-                                SystemNotification::send($record->user, 'review_replied', ['venue' => $record->venue?->tr('name') ?? ''], ['review_id' => $record->id, 'venue_id' => $record->venue_id]);
-                            }
-                        },
+                        fn () => app(ReviewModerationService::class)->reply($record, (string) $data['reply']),
                         __('api.reviews.replied'),
                     )),
             ]);

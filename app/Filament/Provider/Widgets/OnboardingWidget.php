@@ -6,8 +6,10 @@ use App\Enums\DocumentStatus;
 use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
 use App\Enums\RequestStatus;
+use App\Enums\SubscriptionStatus;
 use App\Enums\VenueStatus;
 use App\Filament\Provider\Pages\EditProviderProfile;
+use App\Filament\Provider\Pages\MyPlan;
 use App\Filament\Provider\Pages\Sectors;
 use App\Filament\Provider\Resources\Documents\DocumentResource;
 use App\Filament\Provider\Resources\Venues\VenueResource;
@@ -199,6 +201,16 @@ class OnboardingWidget extends Widget
                     : ($pendingSectorRequests > 0 ? __('provider.onboarding.sector_request_pending') : __('provider.onboarding.no_sectors')),
                 'url' => Sectors::getUrl(),
             ],
+            // Plans from day one: everyone starts on the free plan, so this step is never in the way.
+            [
+                'key' => 'plan',
+                'label' => __('provider.onboarding.step_plan'),
+                'done' => true,
+                'detail' => ($pendingPlan = $provider->subscriptions()->where('status', SubscriptionStatus::Pending)->with('plan')->first())
+                    ? __('provider.onboarding.plan_pending', ['plan' => $pendingPlan->plan->tr('name')])
+                    : __('provider.onboarding.plan_free'),
+                'url' => MyPlan::canAccess() ? MyPlan::getUrl() : null,
+            ],
             [
                 'key' => 'review',
                 'label' => __('provider.onboarding.step_review'),
@@ -210,7 +222,9 @@ class OnboardingWidget extends Widget
             ],
         ];
 
-        $completed = collect($steps)->where('done', true)->count();
+        // The plan step (always done) and the platform's review do not count towards the progress.
+        $required = collect($steps)->whereNotIn('key', ['plan', 'review']);
+        $completed = $required->where('done', true)->count();
 
         return [
             'provider' => $provider,
@@ -218,8 +232,8 @@ class OnboardingWidget extends Widget
             'description' => __('provider.onboarding.description'),
             'readyLabel' => __('provider.onboarding.ready'),
             'steps' => $steps,
-            'progress' => (int) round($completed / (count($steps) - 1) * 100),
-            'readyForReview' => $completed >= count($steps) - 1,
+            'progress' => (int) round($completed / $required->count() * 100),
+            'readyForReview' => $completed === $required->count(),
             'rejectedDocuments' => $documents->where('status', DocumentStatus::Rejected)->count(),
         ];
     }

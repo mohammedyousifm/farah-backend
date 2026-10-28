@@ -22,6 +22,7 @@ class UserResource extends JsonResource
             'avatar_url' => $this->avatar ? Storage::disk('public')->url($this->avatar) : null,
             'city_id' => $this->city_id,
             'city' => new CityResource($this->whenLoaded('city')),
+            'location' => $this->location() ? $this->location() + ['updated_at' => $this->location_updated_at?->toIso8601String()] : null,
             'birth_date' => $this->birth_date?->toDateString(),
             'gender' => $this->gender,
             'marketing_consent' => (bool) $this->marketing_consent,

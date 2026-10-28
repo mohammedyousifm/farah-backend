@@ -17,6 +17,7 @@ use App\Filament\Provider\Resources\Venues\RelationManagers\ResourcesRelationMan
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Venue;
 use App\Models\VenueHour;
@@ -195,7 +196,7 @@ class VenueResource extends Resource
                     Textarea::make('summary_en')->label(__('provider.fields.summary_en'))->rows(2)->maxLength(500),
                     Textarea::make('description_ar')->label(__('provider.fields.description_ar'))->rows(6)->maxLength(20000),
                     Textarea::make('description_en')->label(__('provider.fields.description_en'))->rows(6)->maxLength(20000),
-                    FileUpload::make('cover_image')->label(__('provider.fields.cover'))->image()->maxSize(8192)
+                    FileUpload::make('cover_image')->label(__('provider.fields.cover'))->acceptedFileTypes(Upload::IMAGES)->maxSize(8192)
                         ->disk('public')->directory(fn () => 'venues/'.$provider?->id)->columnSpanFull(),
                 ],
             ],

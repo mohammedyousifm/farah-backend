@@ -6,14 +6,17 @@ use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PhoneScanController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\PageController;
+use App\Http\Controllers\Web\PlaceController;
 use App\Http\Controllers\Web\SeoController;
 use App\Http\Controllers\Web\SiteController;
 use App\Http\Middleware\SetAdminLocale;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // --- Landing page --- (public website: landing, static pages, contact, SEO files; ?lang=en|ar)
 Route::get('/', LandingController::class)->name('landing');
 Route::get('/contact', ContactController::class)->name('site.contact');
+Route::get('/places/{slug}', PlaceController::class)->name('site.place'); // stores whose plan includes search-engine visibility
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('site.robots');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('site.sitemap');
 Route::get('/.well-known/security.txt', [SeoController::class, 'security'])->name('site.security');
@@ -32,12 +35,15 @@ Route::get('/invoices/{order}/pdf', InvoicePdfController::class)->whereNumber('o
 // --- end invoice PDF ---
 
 // --- Admin locale --- (admin workstream; panel language switch kept in the session)
-Route::get('/admin-locale/{locale}', function (string $locale) {
+Route::get('/admin-locale/{locale}', function (Request $request, string $locale) {
     if (in_array($locale, SetAdminLocale::LOCALES, true)) {
         session(['admin_locale' => $locale]);
     }
 
-    return redirect()->back(fallback: '/admin');
+    // Back to the page the switch was clicked on, but never to another site (the Referer is sent by the browser).
+    $back = (string) $request->headers->get('referer');
+
+    return redirect(parse_url($back, PHP_URL_HOST) === $request->getHost() ? $back : '/admin');
 })->name('admin.locale');
 // --- end admin locale ---
 

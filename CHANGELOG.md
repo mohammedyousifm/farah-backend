@@ -5,6 +5,16 @@ Notable changes to the Farah back end and dashboards. Newest first.
 ## Unreleased
 
 ### Added
+- Provider plans (packages), checked by the server. Admin → Finance → "Plans" (name, price, length,
+  features; one plan can be the free plan) and "Plan subscriptions" (activate a request once paid and the
+  provider is approved, give a plan, stop one); permission `plans`. Every provider is on the free plan
+  while no paid plan runs. Features: top of search, featured on the home page, number of activities (the
+  free plan sets the allowance, a paid plan only raises it); a paid feature can last fewer days than the
+  subscription and stops on its own date. Activating a plan replaces the running one. Providers see
+  "My plan" from sign-up on (also a step in the onboarding checklist) and can ask for a paid plan before
+  approval. The plan can be chosen before the account exists: the website lists the plans (#plans, each
+  with a link to `/provider/register?plan=ID`) and the sign-up form starts with the plan choice; a paid
+  choice becomes a pending request; API `GET /provider/plans`, `GET/POST /provider/subscription`, `DELETE /provider/subscription/pending`.
 - Farah wallet: a customer balance fed only by refunds, compensation and rewards. It cannot be topped
   up. It pays a pending order when it covers the whole amount (`POST /orders/{id}/pay-wallet`,
   `GET /wallet`); an order is never split between the wallet and a card. Admins add compensation or a
@@ -33,6 +43,8 @@ Notable changes to the Farah back end and dashboards. Newest first.
   `@property` documentation on every model.
 
 ### Changed
+- Provider panel: the booking length of a game now offers 15, 20, 30, 45, 60, 90, 120, 180 and 240 minutes
+  (was 30 to 120), with plain names and the customer price of the chosen length under the field.
 - Approved refunds are added to the customer's Farah wallet at once instead of going back to the card.
   A payment taken by mistake (slot gone after payment, paid twice) still returns the way it was paid.
 - One store per provider; a new activity on a published store is reviewed before it goes live.

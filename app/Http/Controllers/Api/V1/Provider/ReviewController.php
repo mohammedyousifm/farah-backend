@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1\Provider;
 
 use App\Http\Requests\Api\Provider\ReviewReplyRequest;
 use App\Http\Resources\ReviewResource;
-use App\Notifications\SystemNotification;
+use App\Services\ReviewModerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,13 +31,9 @@ class ReviewController extends ProviderController
         ]]);
     }
 
-    public function reply(ReviewReplyRequest $request, int $review): JsonResponse
+    public function reply(ReviewReplyRequest $request, int $review, ReviewModerationService $reviews): JsonResponse
     {
-        $model = $this->provider($request)->reviews()->findOrFail($review);
-        $model->update(['provider_reply' => $request->reply, 'replied_at' => now()]);
-        if ($model->user) {
-            SystemNotification::send($model->user, 'review_replied', ['venue' => $model->venue?->tr('name') ?? ''], ['review_id' => $model->id, 'venue_id' => $model->venue_id]);
-        }
+        $model = $reviews->reply($this->provider($request)->reviews()->findOrFail($review), (string) $request->reply);
 
         return response()->json(['message' => __('api.reviews.replied'), 'data' => new ReviewResource($model->fresh(['user', 'venue']))]);
     }

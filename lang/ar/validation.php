@@ -13,7 +13,9 @@ return [
     'alpha_num' => 'يجب أن يحتوي :attribute على حروف وأرقام فقط.',
     'any_of' => 'قيمة :attribute غير صحيحة.',
     'array' => 'يجب أن يكون :attribute قائمة.',
+    'array_keys' => 'يجب ألا يحتوي :attribute إلا على المفاتيح: :values.',
     'ascii' => 'يجب أن يحتوي :attribute على حروف وأرقام ورموز إنجليزية فقط.',
+    'base64' => 'يجب أن يكون :attribute نصاً صحيحاً بترميز Base64.',
     'before' => 'يجب أن يكون :attribute قبل :date.',
     'before_or_equal' => 'يجب أن يكون :attribute في :date أو قبله.',
     'between' => [
@@ -42,6 +44,7 @@ return [
     'doesnt_end_with' => 'يجب ألا ينتهي :attribute بأي من: :values.',
     'doesnt_start_with' => 'يجب ألا يبدأ :attribute بأي من: :values.',
     'email' => 'يجب أن يكون :attribute بريداً إلكترونياً صحيحاً.',
+    'encoding' => 'يجب أن يكون :attribute بترميز :encoding.',
     'ends_with' => 'يجب أن ينتهي :attribute بأحد القيم: :values.',
     'enum' => 'قيمة :attribute المختارة غير صحيحة.',
     'exists' => 'قيمة :attribute المختارة غير موجودة.',

@@ -6,6 +6,7 @@ use App\Exceptions\BusinessException;
 use App\Models\AuditLog;
 use App\Models\Review;
 use App\Models\User;
+use App\Notifications\SystemNotification;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -38,6 +39,18 @@ class ReviewModerationService
         }
 
         return $changed;
+    }
+
+    /** The provider answers a review (or edits its answer); the customer is told. Used by the provider app and panel. */
+    public function reply(Review $review, string $reply): Review
+    {
+        $review->update(['provider_reply' => $reply, 'replied_at' => now()]);
+
+        if ($review->user) {
+            SystemNotification::send($review->user, 'review_replied', ['venue' => $review->venue?->tr('name') ?? ''], ['review_id' => $review->id, 'venue_id' => $review->venue_id]);
+        }
+
+        return $review;
     }
 
     /** Remove an abusive provider reply (the review itself stays). */

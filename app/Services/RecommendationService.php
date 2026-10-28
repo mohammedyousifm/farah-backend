@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\PlanFeature;
 use App\Http\Resources\VenueCardResource;
 use App\Models\Activity;
 use App\Models\BehaviorEvent;
@@ -51,7 +52,8 @@ class RecommendationService
         unset($scores[$context?->id]);
 
         arsort($scores);
-        $ids = array_slice(array_keys($scores), 0, $limit);
+        // Stores whose plan includes "recommendations" take the first places (up to a third of the list).
+        $ids = array_slice(array_values(array_unique([...$this->promoted($cityId, $context, max(1, intdiv($limit, 3))), ...array_keys($scores)])), 0, $limit);
 
         if ($ids === []) {
             return $this->cards($this->base(), $user)
@@ -69,6 +71,24 @@ class RecommendationService
     {
         return $query->with(VenueCardResource::RELATIONS)
             ->when($user, fn ($q) => $q->withExists(['favoritedBy as is_favorite' => fn ($f) => $f->where('users.id', $user->id)]));
+    }
+
+    /**
+     * Visible venues of stores holding the "recommendations" plan feature, the user's city first, best rated first.
+     *
+     * @return array<int, int>
+     */
+    private function promoted(?int $cityId, ?Venue $context, int $take): array
+    {
+        $providers = app(SubscriptionService::class)->providerIdsWith(PlanFeature::Recommended);
+        if ($providers === []) {
+            return [];
+        }
+
+        return $this->base()->whereIn('provider_id', $providers)
+            ->when($context, fn ($q) => $q->whereKeyNot($context->id))
+            ->when($cityId, fn ($q) => $q->orderByRaw('city_id = ? desc', [$cityId]))
+            ->orderByDesc('rating_avg')->limit($take)->pluck('id')->all();
     }
 
     private function base(): Builder

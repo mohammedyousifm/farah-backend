@@ -34,8 +34,7 @@ class FinanceController extends ProviderController
             ->with('order:id,number')
             ->when($request->type, fn ($q, $t) => $q->whereIn('type', explode(',', $t)))
             ->when($request->integer('order_id'), fn ($q, $id) => $q->where('order_id', $id))
-            ->when($request->date_from, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
-            ->when($request->date_to, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
+            ->tap(fn ($q) => $this->filterDays($q, $request->date_from, $request->date_to))
             ->latest('id')
             ->paginate(min($request->integer('per_page', 30) ?: 30, 100));
 

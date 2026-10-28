@@ -28,7 +28,8 @@ class VenueResource extends VenueCardResource
             'description_ar' => $this->description_ar,
             'description_en' => $this->description_en,
             'city_id' => $this->city_id,
-            'phone' => $this->phone,
+            // The store's own number is for the provider and the platform; customers book and talk through Farah.
+            'phone' => $this->when($isProvider, $this->phone),
             'audience' => $this->audience,
             'min_age' => $this->min_age,
             'advance_booking_days' => $this->advance_booking_days,

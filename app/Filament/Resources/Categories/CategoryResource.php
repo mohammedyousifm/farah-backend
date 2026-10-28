@@ -6,6 +6,7 @@ use App\Filament\Concerns\ModuleResource;
 use App\Filament\NavGroup;
 use App\Filament\Resources\Categories\Pages\ManageCategories;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\Upload;
 use App\Models\Category;
 use App\Models\Sector;
 use Filament\Actions\DeleteAction;
@@ -53,7 +54,7 @@ class CategoryResource extends Resource
                 ->afterStateUpdated(fn ($state, callable $set, $get) => blank($get('slug')) ? $set('slug', Str::slug((string) $state)) : null),
             TextInput::make('slug')->label(__('admin.fields.slug'))->required()->unique(ignoreRecord: true),
             TextInput::make('icon')->label(__('admin.fields.icon')),
-            FileUpload::make('image')->label(__('admin.fields.image'))->image()->disk('public')->directory('categories'),
+            FileUpload::make('image')->label(__('admin.fields.image'))->acceptedFileTypes(Upload::IMAGES)->maxSize(4096)->disk('public')->directory('categories'),
             TextInput::make('sort_order')->label(__('admin.fields.sort_order'))->numeric()->default(0),
             Toggle::make('is_active')->label(__('admin.fields.is_active'))->default(true),
         ]);

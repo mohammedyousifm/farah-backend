@@ -78,4 +78,12 @@ return [
         'payout' => 'Payout',
         'adjustment' => 'Adjustment',
     ],
+    'plan_feature' => [
+        'search_boost' => 'Top of the general search',
+        'home_featured' => 'Featured on the home pages',
+        'home_slider' => 'In the moving home banners',
+        'recommended' => 'In the recommendations',
+        'seo' => 'Search engine visibility (SEO)',
+    ],
+    'subscription_status' => ['pending' => 'Awaiting activation', 'active' => 'Active', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'expired' => 'Expired'],
 ];

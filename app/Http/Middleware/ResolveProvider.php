@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Resolves the provider the user is acting for (header X-Provider-Id, else their
  * first active membership) and optionally checks a member sub-permission:
  *   ->middleware('provider')              any active member
- *   ->middleware('provider:orders.manage') member with that permission
+ *   ->middleware('provider:orders.view')  member with that permission
  *
  * The resolved Provider is bound as request attribute "provider" and
  * the membership as "provider_member".

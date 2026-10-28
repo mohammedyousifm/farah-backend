@@ -9,6 +9,7 @@ use App\Filament\Resources\Sectors\Pages\EditSector;
 use App\Filament\Resources\Sectors\Pages\ListSectors;
 use App\Filament\Resources\Sectors\RelationManagers\CategoriesRelationManager;
 use App\Filament\Resources\Sectors\RelationManagers\FieldsRelationManager;
+use App\Filament\Support\Upload;
 use App\Models\Sector;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\FileUpload;
@@ -53,7 +54,7 @@ class SectorResource extends Resource
                 TextInput::make('icon')->label(__('admin.fields.icon'))->helperText(__('admin.hints.icon'))->maxLength(255),
                 Textarea::make('description_ar')->label(__('admin.fields.description_ar'))->rows(3),
                 Textarea::make('description_en')->label(__('admin.fields.description_en'))->rows(3),
-                FileUpload::make('image')->label(__('admin.fields.image'))->image()->disk('public')->directory('sectors'),
+                FileUpload::make('image')->label(__('admin.fields.image'))->acceptedFileTypes(Upload::IMAGES)->maxSize(4096)->disk('public')->directory('sectors'),
                 TextInput::make('sort_order')->label(__('admin.fields.sort_order'))->numeric()->default(0),
                 Toggle::make('requires_license')->label(__('admin.fields.requires_license')),
                 Toggle::make('is_active')->label(__('admin.fields.is_active'))->default(true),

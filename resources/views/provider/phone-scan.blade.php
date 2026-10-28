@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="noindex, nofollow">
+    {{-- The address holds the access token: never send it to the font / script hosts. --}}
+    <meta name="referrer" content="no-referrer">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('provider.checkin.phone_title') }}</title>
     <link rel="icon" href="{{ asset('images/favicon.png') }}">
@@ -70,7 +72,8 @@
         <p class="note" id="note">{{ __('provider.checkin.phone_hint') }}</p>
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"
+        integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg==" crossorigin="anonymous"></script>
     <script>
         (() => {
             const url = {{ Js::from(route('provider.phone-scan.scan', $token)) }};

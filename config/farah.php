@@ -36,14 +36,14 @@ return [
     'admin_modules' => [
         'dashboard', 'users', 'admins', 'providers', 'documents', 'sectors', 'venues',
         'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'wallet',
-        'reviews', 'complaints', 'content', 'notifications', 'reports',
+        'plans', 'reviews', 'complaints', 'content', 'notifications', 'reports',
         'settings', 'audit_logs', 'integrations',
     ],
 
     'admin_roles' => [
         'super_admin' => '*',
         'operations' => ['dashboard', 'providers', 'documents', 'sectors', 'venues', 'users.view', 'reviews', 'complaints.view'],
-        'finance' => ['dashboard', 'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'wallet', 'reports', 'providers.view'],
+        'finance' => ['dashboard', 'orders', 'refunds', 'disputes', 'settlements', 'commissions', 'ledger', 'wallet', 'plans', 'reports', 'providers.view'],
         'content' => ['dashboard', 'content', 'notifications', 'venues.view', 'sectors.view'],
         'support' => ['dashboard', 'complaints', 'reviews', 'disputes', 'orders.view', 'users.view', 'venues.view', 'providers.view', 'refunds.view', 'wallet'],
     ],

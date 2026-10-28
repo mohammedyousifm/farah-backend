@@ -7,7 +7,6 @@ return [
     'forbidden' => 'You are not allowed to perform this action.',
     'not_found' => 'The requested item was not found.',
     'account_suspended' => 'Your account is suspended. Please contact support.',
-    'ok' => 'Done.',
     'support_team' => 'Support team',
 
     'otp' => [
@@ -43,8 +42,6 @@ return [
     ],
     'orders' => [
         'not_your_venue' => 'This venue does not belong to your account.',
-        'already_cancelled' => 'This order is already cancelled.',
-        'cannot_cancel_paid' => 'A paid order cannot be cancelled. You can request a refund.',
         'offline_created' => 'Booking recorded and confirmed.',
     ],
     'payments' => [
@@ -108,7 +105,6 @@ return [
     'venues' => [
         'cannot_submit' => 'The venue cannot be submitted in its current status.',
         'one_venue_only' => 'Each provider has one venue. Add your new activities inside your current venue.',
-        'provider_not_approved' => 'Your account must be approved before publishing venues.',
         'no_activities' => 'Add at least one active activity with a table / resource before submitting.',
         'no_hours' => 'Set the working hours of at least one day before submitting.',
         'sector_not_allowed' => 'You are not approved for this activity type.',
@@ -149,4 +145,13 @@ return [
     ],
     'deleted' => 'Deleted.',
     'saved' => 'Saved.',
+    'plans' => [
+        'provider_not_allowed' => 'This account cannot ask for a plan right now.',
+        'plan_inactive' => 'This plan is no longer offered.',
+        'free_is_automatic' => 'You are on the free plan automatically; there is nothing to request.',
+        'approve_provider_first' => 'Approve the provider first, then activate its plan.',
+        'already_pending' => 'You already have a plan request waiting. Cancel it first to choose another one.',
+        'requested' => 'Request sent. The plan starts once the platform activates it.',
+        'request_cancelled' => 'Request cancelled.',
+    ],
 ];

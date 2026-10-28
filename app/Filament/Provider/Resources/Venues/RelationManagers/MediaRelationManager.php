@@ -53,7 +53,7 @@ class MediaRelationManager extends RelationManager
                 ->maxSize(51200)
                 ->visible(fn (Get $get) => $get('source') !== 'url')
                 ->required(fn (Get $get) => $get('source') !== 'url'),
-            TextInput::make('url')->label(__('provider.fields.url'))->url()->maxLength(500)->placeholder('https://youtube.com/...')
+            TextInput::make('url')->label(__('provider.fields.url'))->url()->rule('url:http,https')->maxLength(500)->placeholder('https://youtube.com/...')
                 ->visible(fn (Get $get) => $get('source') === 'url')
                 ->required(fn (Get $get) => $get('source') === 'url'),
         ]);

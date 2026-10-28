@@ -140,6 +140,9 @@
                     return new Promise((resolve, reject) => {
                         const s = document.createElement('script');
                         s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+                        // Pinned file: the browser refuses it if the CDN copy ever changes.
+                        s.integrity = 'sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg==';
+                        s.crossOrigin = 'anonymous';
                         s.onload = resolve;
                         s.onerror = reject;
                         document.head.appendChild(s);

@@ -49,7 +49,8 @@ class ReportService
             throw new InvalidArgumentException("Unknown report [{$key}]");
         }
 
-        [$from, $to] = KpiService::range($filters['from'] ?? null, $filters['to'] ?? null);
+        // Whole days on the business clock, as UTC instants to compare with the timestamp columns.
+        [$from, $to] = KpiService::utc(...KpiService::range($filters['from'] ?? null, $filters['to'] ?? null));
 
         return $this->{str($key)->camel()->toString()}($from, $to, $filters);
     }
@@ -58,10 +59,12 @@ class ReportService
 
     public function salesByPeriod(CarbonInterface $from, CarbonInterface $to, array $f): array
     {
+        // Periods follow the business clock, not UTC.
+        $day = KpiService::localDate('orders.confirmed_at');
         $expr = match ($f['group_by'] ?? 'day') {
-            'month' => "DATE_FORMAT(orders.confirmed_at, '%Y-%m')",
-            'week' => "DATE_FORMAT(orders.confirmed_at, '%x-W%v')",
-            default => 'DATE(orders.confirmed_at)',
+            'month' => "DATE_FORMAT({$day}, '%Y-%m')",
+            'week' => "DATE_FORMAT({$day}, '%x-W%v')",
+            default => $day,
         };
 
         $rows = $this->paidOrders($from, $to, $f)
@@ -174,9 +177,9 @@ class ReportService
      */
     public function venueOccupancy(CarbonInterface $from, CarbonInterface $to, array $f): array
     {
-        $tz = config('farah.timezone', 'Asia/Riyadh');
-        $start = CarbonImmutable::parse($from->toDateString(), $tz)->startOfDay();
-        $end = CarbonImmutable::parse($to->toDateString(), $tz)->endOfDay();
+        $tz = AvailabilityService::timezone();
+        $start = CarbonImmutable::instance($from)->setTimezone($tz)->startOfDay();
+        $end = CarbonImmutable::instance($to)->setTimezone($tz)->endOfDay();
 
         $activityScope = fn (Builder $q) => $q
             ->when($f['sector_id'] ?? null, fn (Builder $q, $id) => $q->where('activities.sector_id', $id))
@@ -335,7 +338,7 @@ class ReportService
                 'adjustments' => $this->money($r->adjustments_amount),
                 'net' => $this->money($r->net_amount),
                 'status' => SettlementStatus::tryFrom($r->status)?->getLabel() ?? $r->status,
-                'paid_at' => $r->paid_at ? substr($r->paid_at, 0, 16) : '-',
+                'paid_at' => $this->local($r->paid_at),
                 'reference' => $r->payment_reference ?? '-',
             ]),
             ['gross', 'commission', 'refunds', 'adjustments', 'net'],
@@ -367,7 +370,7 @@ class ReportService
                 'amount' => $this->money($r->amount),
                 'status' => RefundStatus::tryFrom($r->status)?->getLabel() ?? $r->status,
                 'reason' => (string) $r->reason,
-                'date' => substr((string) $r->created_at, 0, 16),
+                'date' => $this->local($r->created_at),
             ]);
 
         $disputes = $scope(DB::table('disputes'), 'disputes')
@@ -382,7 +385,7 @@ class ReportService
                 'amount' => $this->money($r->amount),
                 'status' => DisputeStatus::tryFrom($r->status)?->getLabel() ?? $r->status,
                 'reason' => (string) $r->reason,
-                'date' => substr((string) $r->created_at, 0, 16),
+                'date' => $this->local($r->created_at),
             ]);
 
         return $this->result(
@@ -412,8 +415,8 @@ class ReportService
                 'orders' => (int) $r->orders,
                 'spent' => $this->money($r->spent),
                 'refunded' => $this->money($r->refunded),
-                'last_order' => substr((string) $r->last_order, 0, 16),
-                'registered_at' => substr((string) $r->registered_at, 0, 10),
+                'last_order' => $this->local($r->last_order),
+                'registered_at' => $this->local($r->registered_at, true),
             ]),
             ['spent', 'refunded'],
             ['orders', 'spent', 'refunded'],
@@ -466,7 +469,7 @@ class ReportService
                 'gross' => $this->money($r->gross),
                 'commission' => $this->money($r->commission),
                 'rating' => number_format((float) $r->rating_avg, 1).' ('.$r->rating_count.')',
-                'joined_at' => substr((string) $r->created_at, 0, 10),
+                'joined_at' => $this->local($r->created_at, true),
             ]),
             ['gross', 'commission'],
             ['venues', 'published', 'orders', 'gross', 'commission'],
@@ -604,6 +607,16 @@ class ReportService
     private function money(mixed $value): float
     {
         return round((float) $value, 2) + 0.0;
+    }
+
+    /** A UTC timestamp from the database on the business clock ("Y-m-d H:i", or the date only); "-" when empty. */
+    private function local(?string $value, bool $dateOnly = false): string
+    {
+        if (! $value) {
+            return '-';
+        }
+
+        return CarbonImmutable::parse($value, 'UTC')->setTimezone(AvailabilityService::timezone())->format($dateOnly ? 'Y-m-d' : 'Y-m-d H:i');
     }
 
     /**

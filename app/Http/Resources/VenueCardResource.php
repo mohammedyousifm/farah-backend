@@ -29,8 +29,7 @@ class VenueCardResource extends JsonResource
             'cover_url' => Thumb::url($this->cover_image),
             'min_price' => $this->min_price, // per hour
             'currency' => config('farah.currency'),
-            'is_featured' => (bool) $this->is_featured,
-            'rating_avg' => $this->rating_avg,
+            'is_featured' => (bool) $this->is_featured,            'rating_avg' => $this->rating_avg,
             'rating_count' => $this->rating_count,
             'address' => $this->address,
             'lat' => $this->lat,

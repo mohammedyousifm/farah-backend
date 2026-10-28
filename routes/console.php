@@ -5,6 +5,7 @@ use App\Services\CampaignService;
 use App\Services\OrderService;
 use App\Services\ProviderService;
 use App\Services\SettlementService;
+use App\Support\SchedulerHeartbeat;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
@@ -67,5 +68,5 @@ Schedule::command('farah:complete-bookings')->everyFiveMinutes()->withoutOverlap
 Schedule::command('farah:document-expiry')->dailyAt('08:00')->withoutOverlapping();
 Schedule::command('farah:prune')->dailyAt('03:30')->withoutOverlapping();
 // Proof the scheduler is alive: "farah:doctor" and the admin dashboard warn when this goes stale.
-Schedule::call(fn () => Cache::put('farah.scheduler.heartbeat', now()->timestamp, now()->addDay()))->everyMinute()->name('farah:heartbeat');
+Schedule::call(fn () => Cache::put(SchedulerHeartbeat::KEY, now()->timestamp, now()->addDay()))->everyMinute()->name('farah:heartbeat');
 Schedule::command('farah:generate-settlements')->dailyAt('02:00')->withoutOverlapping();

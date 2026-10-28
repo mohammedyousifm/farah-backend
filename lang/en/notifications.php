@@ -9,7 +9,7 @@ return [
     'wallet_compensation' => ['title' => 'Compensation received', 'body' => 'SAR :amount was added to your Farah wallet as compensation. We are sorry for what happened.'],
     'wallet_reward' => ['title' => 'Reward received', 'body' => 'SAR :amount was added to your Farah wallet. Enjoy your next booking!'],
     'refund_rejected' => ['title' => 'Refund request declined', 'body' => 'The refund request for order :number was reviewed and declined.'],
-    'provider_approved' => ['title' => 'Account approved', 'body' => 'Welcome to Farah! :name is approved and you can now add your venues.'],
+    'provider_approved' => ['title' => 'Account approved', 'body' => 'Welcome to Farah! :name is approved and you can now set up your store and activities.'],
     'provider_rejected' => ['title' => 'Account not approved', 'body' => 'Reason: :reason'],
     'provider_suspended' => ['title' => 'Account suspended', 'body' => 'Your account is suspended. Reason: :reason'],
     'document_approved' => ['title' => 'Document approved', 'body' => 'Your :type was approved.'],
@@ -34,4 +34,8 @@ return [
     'admin_refund_requested' => ['title' => 'New refund request', 'body' => 'A refund of SAR :amount for order :number is waiting for review.'],
     'admin_complaint_new' => ['title' => 'New complaint', 'body' => 'Complaint :number: :subject'],
     'campaign' => ['title' => ':title', 'body' => ':body'],
+    'subscription_requested' => ['title' => 'New plan request', 'body' => ':provider asked for the :plan plan. Activate it once paid.'],
+    'subscription_activated' => ['title' => 'Your plan is active', 'body' => 'The :plan plan runs until :date.'],
+    'subscription_rejected' => ['title' => 'Plan not activated', 'body' => 'Your :plan request. Reason: :reason'],
+    'subscription_cancelled' => ['title' => 'Your plan was stopped', 'body' => 'The :plan plan was stopped. Reason: :reason'],
 ];

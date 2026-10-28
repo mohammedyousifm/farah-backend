@@ -103,8 +103,7 @@ class Settings extends Page
                     TextInput::make('max_bookings_per_order')->label($label('max_bookings_per_order'))->integer()->minValue(1)->maxValue(100)->required(),
                 ]),
                 Section::make(__('admin.settings.groups.providers'))->icon('heroicon-o-building-storefront')->columns(2)->schema([
-                    TextInput::make('document_expiry_warning_days')->label($label('document_expiry_warning_days'))->integer()->minValue(1)->maxValue(365)->required(),
-                ]),
+                    TextInput::make('document_expiry_warning_days')->label($label('document_expiry_warning_days'))->integer()->minValue(1)->maxValue(365)->required(),                ]),
                 Section::make(__('admin.settings.groups.app'))->icon('heroicon-o-device-phone-mobile')->columns(2)->schema([
                     TextInput::make('platform_name_ar')->label($label('platform_name_ar'))->required(),
                     TextInput::make('platform_name_en')->label($label('platform_name_en'))->required(),

@@ -53,6 +53,10 @@ class SeoController extends Controller
             $entries[] = ['url' => url($slug), 'lastmod' => $page->updated_at?->toAtomString(), 'priority' => $slug === 'about' ? '0.6' : '0.3'];
         }
         $entries[] = ['url' => url('contact'), 'lastmod' => null, 'priority' => '0.5'];
+        // Store pages: only the stores whose plan includes search-engine visibility have one.
+        foreach (PlaceController::indexable()->get(['id', 'slug', 'updated_at']) as $venue) {
+            $entries[] = ['url' => route('site.place', $venue->slug), 'lastmod' => $venue->updated_at?->toAtomString(), 'priority' => '0.8'];
+        }
 
         // Every page is served in both languages (?lang=ar|en); list each version with its alternates.
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n"

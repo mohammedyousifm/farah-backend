@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\ProviderStatus;
 use App\Http\Controllers\Web\SiteController;
 use App\Models\City;
+use App\Models\Plan;
 use App\Models\Provider;
 use App\Models\Sector;
 use App\Models\Venue;
@@ -27,6 +28,7 @@ class LandingController extends SiteController
 
         return $this->render($request, 'landing.index', [
             'sectors' => $sectors,
+            'plans' => Plan::active()->with('items')->orderByDesc('is_free')->orderBy('sort_order')->orderBy('price')->get(),
             'stats' => array_filter(self::stats()),
         ]);
     }

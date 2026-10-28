@@ -78,4 +78,12 @@ return [
         'payout' => 'صرف تسوية',
         'adjustment' => 'تسوية يدوية',
     ],
+    'plan_feature' => [
+        'search_boost' => 'الظهور في البحث العام',
+        'home_featured' => 'الظهور في الواجهات الرئيسية',
+        'home_slider' => 'الظهور في الواجهات المتحركة',
+        'recommended' => 'الظهور في المقترحات',
+        'seo' => 'تحسين الظهور في محركات البحث',
+    ],
+    'subscription_status' => ['pending' => 'بانتظار التفعيل', 'active' => 'سارية', 'rejected' => 'مرفوضة', 'cancelled' => 'ملغاة', 'expired' => 'منتهية'],
 ];

@@ -247,4 +247,9 @@ class Provider extends Model implements HasAvatar, HasName
     {
         return $this->hasMany(Review::class);
     }
+
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(ProviderSubscription::class);
+    }
 }

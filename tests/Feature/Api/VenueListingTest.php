@@ -166,7 +166,7 @@ class VenueListingTest extends ApiTestCase
         $this->getJson("/api/v1/venues/{$venue->id}", ['Accept-Language' => 'en'])
             ->assertOk()
             ->assertJsonPath('data.name', 'Test venue')
-            ->assertJsonPath('data.phone', '0112223344')
+            ->assertJsonMissingPath('data.phone')
             ->assertJsonPath('data.is_bookable', true)
             ->assertJsonPath('data.advance_booking_days', 14)
             ->assertJsonPath('data.refund_policy.key', 'flexible')

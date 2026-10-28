@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Sectors\RelationManagers;
 
 use App\Filament\Concerns\ModuleRelationManager;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\Upload;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -45,7 +46,7 @@ class CategoriesRelationManager extends RelationManager
                 ->placeholder('-'),
             TextInput::make('icon')->label(__('admin.fields.icon')),
             TextInput::make('sort_order')->label(__('admin.fields.sort_order'))->numeric()->default(0),
-            FileUpload::make('image')->label(__('admin.fields.image'))->image()->disk('public')->directory('categories'),
+            FileUpload::make('image')->label(__('admin.fields.image'))->acceptedFileTypes(Upload::IMAGES)->maxSize(4096)->disk('public')->directory('categories'),
             Toggle::make('is_active')->label(__('admin.fields.is_active'))->default(true),
         ]);
     }

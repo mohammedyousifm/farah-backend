@@ -54,7 +54,7 @@ class ViewProvider extends ViewRecord
                 ->fillForm(fn () => ['internal_rating' => $p->internal_rating?->value, 'internal_notes' => $p->internal_notes])
                 ->schema([
                     Select::make('internal_rating')->label(__('admin.fields.internal_rating'))->options(InternalRating::class),
-                    Textarea::make('internal_notes')->label(__('admin.fields.internal_notes'))->rows(4),
+                    Textarea::make('internal_notes')->label(__('admin.fields.internal_notes'))->rows(4)->maxLength(5000),
                 ])
                 ->action(fn (array $data) => Act::run(fn () => $p->update($data))),
 

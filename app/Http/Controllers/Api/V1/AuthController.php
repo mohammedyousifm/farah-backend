@@ -10,11 +10,14 @@ use App\Http\Requests\Api\Auth\RequestOtpRequest;
 use App\Http\Requests\Api\Auth\UpdateProfileRequest;
 use App\Http\Requests\Api\Auth\VerifyOtpRequest;
 use App\Http\Resources\UserResource;
+use App\Models\DeviceToken;
 use App\Models\User;
 use App\Services\OtpService;
+use App\Support\Geo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Passwordless login: request an OTP for a phone/email, verify it, receive a
@@ -101,9 +104,20 @@ class AuthController extends Controller
 
         if ($request->hasFile('avatar')) {
             $data['avatar'] = $request->file('avatar')->store('avatars', 'public');
+            if ($user->avatar) {
+                Storage::disk('public')->delete($user->avatar);
+            }
         }
         if (array_key_exists('email', $data) && $data['email'] !== $user->email) {
             $data['email_verified_at'] = null;
+        }
+        if (array_key_exists('lat', $data)) {
+            $data['location_updated_at'] = $data['lat'] === null ? null : now();
+            $data['lng'] = $data['lat'] === null ? null : $data['lng'];
+            // A new GPS point also sets the city it falls in, unless the same request picks one.
+            if ($data['lat'] !== null && ! array_key_exists('city_id', $data)) {
+                $data['city_id'] = Geo::nearestCity((float) $data['lat'], (float) $data['lng'])?->id ?? $user->city_id;
+            }
         }
 
         $user->update($data);
@@ -133,6 +147,9 @@ class AuthController extends Controller
 
     public function storeDeviceToken(DeviceTokenRequest $request): JsonResponse
     {
+        // A phone signed in to another account before: its pushes now belong to this account only.
+        DeviceToken::where('token', $request->token)->where('user_id', '!=', $request->user()->id)->delete();
+
         $request->user()->deviceTokens()->updateOrCreate(
             ['token' => $request->token],
             ['platform' => $request->platform, 'last_used_at' => now()],

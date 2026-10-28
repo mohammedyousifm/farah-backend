@@ -36,7 +36,7 @@ class ProviderMember extends Model
 {
     /** Sub-permissions a provider owner/manager can grant to staff. */
     public const PERMISSIONS = [
-        'venues.manage', 'orders.view', 'orders.manage', 'orders.offline', 'bookings.checkin',
+        'venues.manage', 'orders.view', 'orders.offline', 'bookings.checkin',
         'finance.view', 'team.manage', 'reviews.reply', 'profile.manage',
     ];
 
