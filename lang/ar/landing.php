@@ -95,7 +95,7 @@ return [
         'google_play' => 'Google Play',
         'download_on' => 'حمّله من',
         'get_it_on' => 'احصل عليه من',
-        'screenshot_alt' => 'الشاشة الرئيسية في تطبيق فرة',
+        'screenshot_alt' => 'جولة في تطبيق فرة: الترحيب وتسجيل الدخول والحجز ورمز الوصول',
     ],
 
     'stats' => [

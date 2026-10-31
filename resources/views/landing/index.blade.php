@@ -164,8 +164,10 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
 .store small { display: block; font-size: .7rem; color: var(--muted); line-height: 1.1; }
 .store b { display: block; font-size: 1.05rem; line-height: 1.2; }
 .store .soon { position: absolute; top: -.7rem; inset-inline-end: -.4rem; font-size: .72rem; font-weight: 700; padding: .1rem .55rem; border-radius: 999px; background: var(--orange); color: #111; }
-.phone { justify-self: center; width: min(17rem, 100%); aspect-ratio: 9 / 20; border-radius: 2.4rem; border: 8px solid #1d1d25; background: #0f0f15; box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); overflow: hidden; }
-.phone img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.phone { position: relative; justify-self: center; width: min(17rem, 100%); aspect-ratio: 9 / 20; border-radius: 2.4rem; border: 8px solid #1d1d25; background: #0f0f15; box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); overflow: hidden; }
+.phone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transform: translateX(-12%); transition: opacity .45s ease, transform .45s ease; }
+.phone img.is-on { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .phone img { transition: none; transform: none; } }
 
 .faq { max-width: 50rem; margin: 0 auto; display: grid; gap: .75rem; }
 .faq details { border: 1px solid var(--line); border-radius: 1rem; background: var(--card); transition: border-color .2s; }
@@ -418,8 +420,10 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
                         </div>
                     </div>
                 </div>
-                <div class="phone">
-                    <img src="{{ asset('images/app-home.webp') }}" alt="{{ __('landing.app.screenshot_alt') }}" width="640" height="1422" loading="lazy">
+                <div class="phone" id="app-tour" role="img" aria-label="{{ __('landing.app.screenshot_alt') }}">
+                    @foreach (['welcome-1', 'welcome-2', 'welcome-3', 'sign-in', 'verify', 'home', 'venue', 'choose-time', 'booking-qr'] as $frame)
+                    <img src="{{ asset('images/app-tour/'.$frame.'.webp') }}" alt="" width="540" height="1200" @class(['is-on' => $loop->first]) @unless ($loop->first) loading="lazy" @endunless>
+                    @endforeach
                 </div>
             </div>
         </div>
@@ -452,4 +456,28 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
             </div>
         </div>
     </section>
+    {{-- Plays the app tour only while it is on screen, so it always opens on the welcome pages. --}}
+    <script>
+        (() => {
+            const tour = document.getElementById('app-tour');
+            if (!tour || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const frames = [...tour.querySelectorAll('img')];
+            frames.forEach(img => { img.loading = 'eager'; });
+            let current = 0, timer = null;
+            const show = i => {
+                frames[current].classList.remove('is-on');
+                current = i;
+                frames[current].classList.add('is-on');
+            };
+            new IntersectionObserver(([entry]) => {
+                clearInterval(timer);
+                timer = null;
+                if (entry.isIntersecting) {
+                    timer = setInterval(() => show((current + 1) % frames.length), 2600);
+                } else {
+                    show(0);
+                }
+            }, { threshold: .4 }).observe(tour);
+        })();
+    </script>
 @endsection

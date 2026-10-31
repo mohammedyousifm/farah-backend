@@ -95,7 +95,7 @@ return [
         'google_play' => 'Google Play',
         'download_on' => 'Download on the',
         'get_it_on' => 'Get it on',
-        'screenshot_alt' => 'The home screen of the Farah app',
+        'screenshot_alt' => 'A tour of the Farah app: welcome, sign in, booking and the arrival code',
     ],
 
     'stats' => [
