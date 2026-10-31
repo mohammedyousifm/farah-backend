@@ -2,15 +2,23 @@
 
 namespace Tests\Feature\Landing;
 
+use App\Enums\ProviderStatus;
+use App\Enums\UserType;
+use App\Enums\VenueStatus;
+use App\Http\Controllers\LandingController;
+use App\Models\City;
 use App\Models\Page;
+use App\Models\Provider;
+use App\Models\Sector;
 use App\Models\Setting;
+use App\Models\User;
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
-/** Public website: landing SEO, static pages, contact, sitemap, robots and branded error pages. */
+/** Public website: landing SEO/stats, static pages, contact, sitemap, robots and branded error pages. */
 class PublicSiteTest extends TestCase
 {
     use RefreshDatabase;
@@ -33,8 +41,10 @@ class PublicSiteTest extends TestCase
         $this->assertStringContainsString('property="og:image" content="'.asset('images/og-share.png').'"', $html);
         $this->assertStringContainsString('name="twitter:card" content="summary_large_image"', $html);
         $this->assertStringContainsString('"@type":"Organization"', $html);
+        $this->assertStringContainsString('"@type":"FAQPage"', $html);
         $this->assertStringContainsString('aria-controls="mnav"', $html);
-        $this->assertStringContainsString(__('landing.hero.stores', [], 'ar'), $html);
+        $this->assertStringContainsString('<details', $html);
+        $this->assertStringContainsString(__('landing.app.soon', [], 'ar'), $html);
         $this->assertStringContainsString('href="'.url('/terms').'"', $html);
         $this->assertStringContainsString('href="'.url('/contact').'"', $html);
         $this->assertDoesNotMatchRegularExpression('/<img(?![^>]*\balt=)[^>]*>/', $html, 'every image needs alt text');
@@ -56,29 +66,76 @@ class PublicSiteTest extends TestCase
         $this->assertStringContainsString('content="en_US"', $html);
     }
 
+    public function test_stats_strip_shows_live_counts_and_hides_zeros(): void
+    {
+        $cities = City::where('is_active', true)->count();
+        $sectors = Sector::where('is_active', true)->count();
+        $this->assertGreaterThan(0, $sectors);
+
+        $this->get('/?lang=en')
+            ->assertOk()
+            ->assertSee('activity types')
+            ->assertDontSee('approved providers') // no providers seeded: the zero stat is hidden
+            ->assertDontSee('bookable venues');
+
+        $stats = LandingController::stats();
+        $this->assertSame($sectors, $stats['sectors']);
+        $this->assertSame($cities, $stats['cities']);
+        $this->assertSame(0, $stats['providers']);
+        $this->assertSame(0, $stats['venues']);
+        $this->assertTrue(Cache::has('landing.stats'));
+    }
+
+    public function test_stats_count_only_venues_customers_can_book(): void
+    {
+        $owner = User::create(['name' => 'Owner', 'phone' => '+966551112233', 'type' => UserType::Provider]);
+        $provider = Provider::create(['owner_id' => $owner->id, 'type' => 'establishment', 'name_ar' => 'شركة كيو', 'name_en' => 'Cue Co.',
+            'slug' => 'cue-co', 'status' => ProviderStatus::Approved, 'approved_at' => now()]);
+        $venue = fn (string $slug, VenueStatus $status) => $provider->venues()->create(['name_ar' => 'كيو لاونج', 'name_en' => 'Cue Lounge', 'slug' => $slug, 'status' => $status]);
+        $venue('cue-lounge', VenueStatus::Published);
+        $venue('cue-lounge-draft', VenueStatus::Draft);
+        $venue('cue-lounge-review', VenueStatus::PendingReview);
+
+        $this->assertSame(1, LandingController::stats()['venues']);
+        $this->get('/?lang=en')->assertOk()->assertSee('bookable venues')->assertSee('approved providers');
+
+        // A suspended provider takes its venues off the count.
+        Cache::flush();
+        $provider->update(['status' => ProviderStatus::Suspended]);
+        $this->assertSame(0, LandingController::stats()['venues']);
+    }
+
     public function test_landing_presents_hourly_venue_booking_in_both_languages(): void
     {
         foreach (['ar', 'en'] as $locale) {
             $html = $this->get('/?lang='.$locale)->assertOk()
-                ->assertSee(__('landing.hero.title', [], $locale))
-                ->assertSee(__('landing.about.title', [], $locale))
-                ->assertSee(__('landing.contact.title', [], $locale))
+                ->assertSee(__('landing.app.title', [], $locale))
+                ->assertSee(__('landing.faq.items.2.q', [], $locale))
                 ->getContent();
 
-            // The hero is the real app: every screen of the tour exists and each flow step has at least one.
+            // The hero is the real app: every screen of the tour exists.
             preg_match_all('#images/app-tour/([a-z0-9-]+)\.webp#', $html, $frames);
             $this->assertCount(13, $frames[1]);
             foreach ($frames[1] as $frame) {
                 $this->assertFileExists(public_path('images/app-tour/'.$frame.'.webp'));
-            }
-            for ($step = 0; $step < 6; $step++) {
-                $this->assertStringContainsString('data-step="'.$step.'" ', $html);
             }
 
             // Nothing is left of the old "sell tickets for your events" pitch.
             $text = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#s', '', $html));
             $this->assertDoesNotMatchRegularExpression('/\b(events?|tickets?|e-tickets?)\b/i', $text);
             $this->assertDoesNotMatchRegularExpression('/فعالي|تذكرة|تذاكر/u', $text);
+        }
+    }
+
+    public function test_every_activity_type_has_its_own_icon(): void
+    {
+        $html = $this->get('/')->assertOk()->getContent();
+        $sectors = Sector::where('is_active', true)->get();
+
+        // Inline activity icons (billiards, bowling, ...) instead of the generic fallback.
+        $this->assertSame($sectors->count(), substr_count($html, '<div class="sector-icon"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"'));
+        foreach ($sectors as $sector) {
+            $this->assertStringContainsString('<h3>'.e($sector->name_ar).'</h3>', $html);
         }
     }
 

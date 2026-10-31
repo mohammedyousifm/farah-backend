@@ -15,9 +15,13 @@
     $phoneHref = $supportPhone ? preg_replace('/[^\d+]/', '', (string) $supportPhone) : null;
     $whatsApp = $phoneHref ? 'https://wa.me/'.ltrim($phoneHref, '+') : null;
     $navItems = [
-        ['href' => $anchor('about'), 'label' => __('landing.nav.about')],
+        ['href' => $anchor('how'), 'label' => __('landing.nav.how')],
+        ['href' => $anchor('features'), 'label' => __('landing.nav.features')],
+        ['href' => $anchor('sectors'), 'label' => __('landing.nav.sectors')],
         ['href' => $anchor('plans'), 'label' => __('landing.nav.plans')],
-        ['href' => $onHome ? '#contact' : route('site.contact'), 'label' => __('site.nav.contact'), 'current' => request()->routeIs('site.contact')],
+        ['href' => $anchor('app'), 'label' => __('landing.nav.app')],
+        ['href' => $anchor('faq'), 'label' => __('landing.nav.faq')],
+        ['href' => route('site.contact'), 'label' => __('site.nav.contact'), 'current' => request()->routeIs('site.contact')],
     ];
     $organization = array_filter([
         '@context' => 'https://schema.org',
@@ -137,8 +141,8 @@
                     <ul>
                         <li><a href="{{ $registerUrl }}">{{ __('landing.join') }}</a></li>
                         <li><a href="{{ $loginUrl }}">{{ __('landing.sign_in') }}</a></li>
-                        <li><a href="{{ $anchor('about') }}">{{ __('landing.nav.about') }}</a></li>
-                        <li><a href="{{ $anchor('plans') }}">{{ __('landing.nav.plans') }}</a></li>
+                        <li><a href="{{ $anchor('how') }}">{{ __('landing.nav.how') }}</a></li>
+                        <li><a href="{{ $anchor('faq') }}">{{ __('landing.nav.faq') }}</a></li>
                     </ul>
                 </nav>
                 <nav aria-labelledby="foot-company">

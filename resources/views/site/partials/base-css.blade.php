@@ -1,12 +1,14 @@
 {{-- Shared styles for the public website and error pages (inline, no build step). --}}
 :root {
-    --bg: #0A0A0D; --bg-2: #131317; --card: rgba(255,255,255,.04); --line: rgba(255,255,255,.1);
+    --bg: #100E17; --bg-2: #17141F; --card: rgba(255,255,255,.04); --line: rgba(255,255,255,.1);
     --text: #F5F5F7; --muted: #B4B4BC;
-    --accent: #D391E8; --orange: var(--accent); --magenta: var(--accent); --purple: var(--accent); --blue: var(--accent);
-    --grad: var(--accent);
+    --accent: #A855F7; --brand-soft: rgba(123,47,247,.14);
+    --orange: var(--accent); --magenta: #E6007E; --purple: #7B2FF7; --blue: var(--accent);
+    --grad: linear-gradient(90deg, var(--magenta), var(--purple));
     --radius: 1.25rem;
     color-scheme: dark;
 }
+[dir="rtl"] { --grad: linear-gradient(270deg, var(--magenta), var(--purple)); }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 5rem; -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-width: 320px; overflow-x: hidden; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, 'Segoe UI', Tahoma, sans-serif; line-height: 1.7; -webkit-font-smoothing: antialiased; }
@@ -29,13 +31,14 @@ main:focus { outline: none; }
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .8rem 1.4rem; border-radius: 999px; font: inherit; font-weight: 600; font-size: .98rem; line-height: 1.3; border: 0; cursor: pointer; transition: transform .15s, box-shadow .15s, background .15s; text-align: center; }
 .btn:hover { transform: translateY(-1px); }
-.btn-primary { background: var(--accent); color: #17101b; }
+.btn-primary { background: linear-gradient(90deg, var(--magenta), var(--purple)); color: #fff; }
+[dir="rtl"] .btn-primary { background: linear-gradient(270deg, var(--magenta), var(--purple)); }
 .btn-ghost { border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--text); }
 .btn-ghost:hover { background: rgba(255,255,255,.09); }
 .btn-sm { padding: .5rem 1rem; font-size: .9rem; }
 
 /* Header */
-header.top { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(11,11,16,.82); border-bottom: 1px solid var(--line); }
+header.top { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); background: rgba(16,14,23,.85); border-bottom: 1px solid var(--line); }
 .top-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; height: 4.25rem; }
 .brand { display: flex; align-items: center; gap: .6rem; flex-shrink: 0; }
 .brand img { height: 2.25rem; width: auto; }
@@ -52,7 +55,7 @@ nav.links a:hover, nav.links a[aria-current="page"] { color: var(--text); }
 .menu-btn svg { width: 1.35rem; height: 1.35rem; }
 .menu-btn .i-close, .menu-btn[aria-expanded="true"] .i-open { display: none; }
 .menu-btn[aria-expanded="true"] .i-close { display: block; }
-.mnav { border-top: 1px solid var(--line); background: rgba(11,11,16,.97); max-height: calc(100vh - 4.25rem); overflow-y: auto; }
+.mnav { border-top: 1px solid var(--line); background: rgba(16,14,23,.97); max-height: calc(100vh - 4.25rem); overflow-y: auto; }
 .mnav[hidden] { display: none; }
 .mnav ul { list-style: none; margin: 0; padding: .75rem 0 .5rem; display: grid; }
 .mnav li a { display: block; padding: .8rem .25rem; border-bottom: 1px solid var(--line); font-weight: 600; }
@@ -61,6 +64,8 @@ nav.links a:hover, nav.links a[aria-current="page"] { color: var(--text); }
 
 /* Page heads (inner pages + errors) */
 .page-hero { position: relative; overflow: hidden; padding: 4rem 0 3rem; text-align: center; }
+.page-hero::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(34rem 20rem at 15% 0%, rgba(249,178,51,.14), transparent 60%), radial-gradient(34rem 22rem at 85% 10%, rgba(230,0,126,.18), transparent 60%), radial-gradient(36rem 20rem at 50% 120%, rgba(61,139,255,.16), transparent 60%); }
 .page-hero > * { position: relative; }
 .page-hero h1 { font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.25; margin: .8rem 0 .6rem; }
 .page-hero p { color: var(--muted); margin: 0 auto; max-width: 40rem; font-size: 1.05rem; }
