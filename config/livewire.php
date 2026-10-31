@@ -129,7 +129,9 @@ return [
     */
 
     'temporary_file_upload' => [
-        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK'), // Example: 'local', 's3'             | Default: 'default'
+        // Farah: the private disk, never "public": provider documents and payout receipts pass through here
+        // before they are moved to their own private folder, and public/storage would expose them meanwhile.
+        'disk' => env('LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK', 'local'),
         // Farah: venue media (video) may be up to 50MB (MediaRelationManager ->maxSize(51200)).
         'rules' => ['required', 'file', 'max:51200'],
         'directory' => null,                                  // Example: 'tmp'                     | Default: 'livewire-tmp'

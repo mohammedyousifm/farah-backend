@@ -19,6 +19,7 @@ use App\Filament\Resources\Providers\RelationManagers\SectorsRelationManager;
 use App\Filament\Resources\Providers\RelationManagers\SettlementsRelationManager;
 use App\Filament\Resources\Providers\RelationManagers\VenuesRelationManager;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Provider;
@@ -128,7 +129,7 @@ class ProviderResource extends Resource
                     FileUpload::make('cover')->label(__('admin.fields.cover'))->acceptedFileTypes(Upload::IMAGES)->maxSize(8192)->disk('public')->directory('providers'),
                 ]),
                 Tab::make(__('admin.tabs.contact'))->icon('heroicon-o-phone')->columns(2)->schema([
-                    TextInput::make('phone')->label(__('admin.fields.phone'))->tel(),
+                    SaudiInput::mobile()->label(__('admin.fields.phone')),
                     TextInput::make('email')->label(__('admin.fields.email'))->email(),
                     TextInput::make('website')->label(__('admin.fields.website'))->url()->rule('url:http,https')->maxLength(200),
                     TextInput::make('maps_url')->label(__('admin.fields.maps_url'))->url()->rule('url:http,https')->maxLength(500)->rule(new GoogleMapsLink),
@@ -145,7 +146,7 @@ class ProviderResource extends Resource
                 Tab::make(__('admin.tabs.bank'))->icon('heroicon-o-building-library')->columns(2)->schema([
                     TextInput::make('bank_name')->label(__('admin.fields.bank_name')),
                     TextInput::make('account_holder')->label(__('admin.fields.account_holder')),
-                    TextInput::make('iban')->label(__('admin.fields.iban'))->maxLength(34)->regex('/^SA\d{22}$/')->helperText(__('admin.hints.iban')),
+                    SaudiInput::iban()->label(__('admin.fields.iban'))->helperText(__('admin.hints.iban')),
                 ]),
             ]),
         ]);

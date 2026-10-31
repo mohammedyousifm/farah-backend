@@ -13,7 +13,7 @@ Do not open a public issue for a security problem.
 |---|---|---|
 | Sign-in | One-time codes, 6 digits, hashed, 5 tries per code, rate limited per number and per IP | `OtpService`, `AppServiceProvider` |
 | Dashboards | Optional two-step login (authenticator app); sign-ins, failures and lockouts in the audit log | panel providers, `AppServiceProvider::recordSignIns()` |
-| Passwords | Minimum length everywhere; letters and numbers required in production | `AppServiceProvider::harden()` |
+| Passwords | Dashboards: 8+ characters with upper- and lower-case letters, a digit and a symbol | `AppServiceProvider::harden()` |
 | Tokens | 90-day API tokens with a recognisable prefix; revoked on sign-out, suspension and account deletion | `AuthController`, `UserResource` |
 | Repeated requests | The same action sent twice within 5 seconds runs once; approvals notify once | `PreventDuplicateRequests`, `Support\Once` |
 | Rate limits | 120 requests a minute per person; 30 a minute for booking, paying, cancelling, rating, complaining | `AppServiceProvider` |
@@ -33,4 +33,4 @@ the placeholder webhook secret, the fixed development sign-in code, stand-in SMS
 providers, a scheduler that is not running.
 
 Still to do outside the code: connect a real SMS provider and payment gateway, create the
-Android signing key, and move cache and sessions to Redis.
+Android signing key, and move cache and sessions to Redis. Server set-up: [docs/DEPLOY.md](docs/DEPLOY.md).

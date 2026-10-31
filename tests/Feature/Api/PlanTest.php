@@ -256,7 +256,7 @@ class PlanTest extends ProviderPanelTestCase
             ->assertFormSet(['plan_id' => $paid->id])
             ->fillForm([
                 'name' => 'New Owner', 'email' => 'new.owner@example.com', 'phone' => '0551234567',
-                'password' => 'secret-pass-123', 'passwordConfirmation' => 'secret-pass-123',
+                'password' => 'Secret-pass-123', 'passwordConfirmation' => 'Secret-pass-123',
                 'name_ar' => 'منشأة جديدة', 'cr_number' => '1010101010', 'maps_url' => 'https://maps.app.goo.gl/AbCdEf123456',
                 'city_id' => $this->city->id, 'sector_ids' => [$this->sector->id],
             ])

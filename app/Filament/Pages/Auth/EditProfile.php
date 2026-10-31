@@ -2,11 +2,12 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Filament\Support\SaudiInput;
 use App\Models\User;
 use App\Services\OtpService;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
-use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use SensitiveParameter;
 
@@ -30,21 +31,35 @@ class EditProfile extends BaseEditProfile
 
     protected function getPhoneFormComponent(): Component
     {
-        return TextInput::make('phone')
+        return SaudiInput::mobile()
             ->label(__('two_factor.phone'))
-            ->tel()
-            ->placeholder('05XXXXXXXX')
             ->helperText(__('two_factor.phone_hint'))
-            ->regex('/^(\+?966|0)?5\d{8}$/')
-            ->dehydrateStateUsing(fn (?string $state) => filled($state) ? OtpService::normalize($state) : null)
             // Compared in its stored form (+9665...), whatever way it was typed.
             ->rule(fn () => function (string $attribute, mixed $value, \Closure $fail): void {
                 $phone = filled($value) ? OtpService::normalize((string) $value) : null;
                 if ($phone && User::withTrashed()->where('phone', $phone)->whereKeyNot($this->getUser()->getKey())->exists()) {
                     $fail(__('two_factor.phone_taken'));
                 }
-            })
-            ->extraInputAttributes(['dir' => 'ltr']);
+            });
+    }
+
+    /**
+     * The mobile number signs the person in to the app by SMS code (and acts for their stores there), so changing it
+     * asks for the current password, like a new e-mail does: someone at an unlocked computer cannot move it to theirs.
+     */
+    protected function getCurrentPasswordFormComponent(): Component
+    {
+        $phoneChanged = function (Get $get): bool {
+            $phone = filled($get('phone')) ? OtpService::normalize((string) $get('phone')) : null;
+
+            return $phone !== $this->getUser()->getAttributeValue('phone');
+        };
+
+        $component = parent::getCurrentPasswordFormComponent();
+
+        return $component->visible(fn (Get $get): bool => filled($get('password'))
+            || $get('email') !== $this->getUser()->getAttributeValue('email')
+            || $phoneChanged($get));
     }
 
     protected function mutateFormDataBeforeSave(#[SensitiveParameter] array $data): array

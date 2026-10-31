@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
 use App\Rules\GoogleMapsLink;
+use App\Rules\SaudiIban;
 
 class RegisterProviderRequest extends ApiRequest
 {
@@ -27,7 +28,7 @@ class RegisterProviderRequest extends ApiRequest
             'legal_name' => ['nullable', 'string', 'max:200'],
             'vat_number' => ['nullable', 'digits:15'],
             'bank_name' => ['nullable', 'string', 'max:100'],
-            'iban' => ['nullable', 'regex:/^SA\d{22}$/'],
+            'iban' => ['nullable', new SaudiIban],
             'account_holder' => ['nullable', 'string', 'max:150'],
             'sector_ids' => ['required', 'array', 'min:1'],
             'sector_ids.*' => ['integer', 'exists:sectors,id'],
@@ -38,7 +39,7 @@ class RegisterProviderRequest extends ApiRequest
     {
         $this->merge(['type' => 'establishment']);
         if ($this->iban) {
-            $this->merge(['iban' => strtoupper(str_replace(' ', '', $this->iban))]);
+            $this->merge(['iban' => SaudiIban::clean((string) $this->iban)]);
         }
     }
 }

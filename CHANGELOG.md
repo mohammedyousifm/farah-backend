@@ -59,6 +59,12 @@ Notable changes to the Farah back end and dashboards. Newest first.
 - Search text is escaped before `LIKE`; uploads no longer accept SVG; media links must be HTTPS.
 - Security headers, CORS allow-list, forced HTTPS and secure cookies in production, action rate limits.
 - Dashboard sign-ins, failures and lockouts are written to the audit log.
+- Dashboard uploads wait on the private disk (not `public/storage`) until saved, so a provider
+  document is never reachable from the web on its way in.
+- Production deployment guide (`docs/DEPLOY.md`); `.env.example` now lists every key with production
+  defaults. Daily scheduled jobs are set in Saudi time (prune 03:30, settlements 05:00, document
+  warnings 08:00).
+- Unused Vite/Tailwind starter files and two unused logo images removed.
 
 ### Removed
 - Cancelling an order: the app buttons, `POST /orders/{id}/cancel`, the admin "cancel unpaid order"

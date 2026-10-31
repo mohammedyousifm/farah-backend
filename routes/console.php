@@ -65,8 +65,15 @@ Artisan::command('farah:send-campaigns', function (CampaignService $campaigns) {
 Schedule::command('farah:expire-orders')->everyMinute()->withoutOverlapping();
 Schedule::command('farah:send-campaigns')->everyMinute()->withoutOverlapping();
 Schedule::command('farah:complete-bookings')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('farah:document-expiry')->dailyAt('08:00')->withoutOverlapping();
-Schedule::command('farah:prune')->dailyAt('03:30')->withoutOverlapping();
 // Proof the scheduler is alive: "farah:doctor" and the admin dashboard warn when this goes stale.
 Schedule::call(fn () => Cache::put(SchedulerHeartbeat::KEY, now()->timestamp, now()->addDay()))->everyMinute()->name('farah:heartbeat');
-Schedule::command('farah:generate-settlements')->dailyAt('02:00')->withoutOverlapping();
+
+/*
+ * Daily jobs are set in Saudi time (the app itself runs in UTC). All three run after 03:00 Riyadh,
+ * when the UTC date and the Saudi date are the same day, so "is today Sunday / the 1st" in the
+ * settlement job means the same thing in both. Keep any new daily job after 03:00 for the same reason.
+ */
+$saudi = config('farah.timezone');
+Schedule::command('farah:prune')->dailyAt('03:30')->timezone($saudi)->withoutOverlapping();
+Schedule::command('farah:generate-settlements')->dailyAt('05:00')->timezone($saudi)->withoutOverlapping(); // = 02:00 UTC, as before
+Schedule::command('farah:document-expiry')->dailyAt('08:00')->timezone($saudi)->withoutOverlapping();

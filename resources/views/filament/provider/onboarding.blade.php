@@ -1,4 +1,25 @@
 <x-filament-widgets::widget>
+    @if ($requested !== [])
+        {{-- Asked for by the platform while reviewing: exactly what, and where to upload it. --}}
+        <x-filament::section :heading="__('provider.documents.requested_title')" :description="__('provider.documents.requested_hint')" icon="heroicon-o-document-plus" icon-color="warning" class="farah-onboarding-requested">
+            <ul class="farah-onboarding-items">
+                @foreach ($requested as $item)
+                    <li class="is-{{ $item['state'] }}">
+                        <span class="farah-onboarding-dot" aria-hidden="true"></span>
+                        <span>{{ $item['label'] }}</span>
+                        <span class="farah-onboarding-item-status">{{ $item['status'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+            @if ($requestsUrl)
+                <div style="margin-top: .8rem">
+                    <x-filament::button :href="$requestsUrl" tag="a" size="sm" color="warning" icon="heroicon-o-arrow-up-tray">{{ __('provider.documents.upload_requested') }}</x-filament::button>
+                </div>
+            @endif
+        </x-filament::section>
+    @endif
+
+    @if ($steps !== [])
     <x-filament::section :heading="$title" :description="$description" icon="heroicon-o-rocket-launch">
         <div class="farah-onboarding-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $progress }}">
             <div class="farah-onboarding-progress-bar" style="width: {{ $progress }}%"></div>
@@ -51,8 +72,10 @@
             <p class="farah-onboarding-warn">{{ __('provider.onboarding.rejected_documents', ['count' => $rejectedDocuments]) }}</p>
         @endif
     </x-filament::section>
+    @endif
 
     <style>
+        .farah-onboarding-requested { margin-bottom: 1rem; }
         .farah-onboarding-progress { height: .5rem; border-radius: 999px; background: rgba(127,127,127,.15); overflow: hidden; }
         .farah-onboarding-progress-bar { height: 100%; border-radius: 999px; background: var(--primary-600); transition: width .4s; }
         .farah-onboarding-progress-label { font-size: .85rem; opacity: .75; margin: .4rem 0 1rem; }

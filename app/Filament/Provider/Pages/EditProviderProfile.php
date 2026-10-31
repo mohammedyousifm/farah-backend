@@ -4,6 +4,7 @@ namespace App\Filament\Provider\Pages;
 
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Provider;
@@ -76,7 +77,7 @@ class EditProviderProfile extends EditTenantProfile
                 TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15'),
             ]),
             Section::make(__('provider.profile.contact'))->columns(2)->schema([
-                TextInput::make('phone')->label(__('provider.fields.phone'))->tel()->maxLength(20),
+                SaudiInput::mobile()->label(__('provider.fields.phone')),
                 TextInput::make('email')->label(__('provider.fields.email'))->email()->maxLength(120),
                 TextInput::make('website')->label(__('provider.fields.website'))->url()->rule('url:http,https')->maxLength(200),
                 TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->rule('url:http,https')->maxLength(500)->rule(new GoogleMapsLink)
@@ -90,7 +91,7 @@ class EditProviderProfile extends EditTenantProfile
             Section::make(__('provider.profile.bank'))->columns(3)->schema([
                 TextInput::make('bank_name')->label(__('provider.fields.bank_name'))->maxLength(100),
                 TextInput::make('account_holder')->label(__('provider.fields.account_holder'))->maxLength(150),
-                TextInput::make('iban')->label(__('provider.fields.iban'))->regex('/^SA\d{22}$/')->placeholder('SA0000000000000000000000'),
+                SaudiInput::iban()->label(__('provider.fields.iban')),
             ]),
         ]);
     }

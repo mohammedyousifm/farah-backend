@@ -13,9 +13,12 @@ use App\Filament\Provider\Resources\Venues\RelationManagers\ActivitiesRelationMa
 use App\Filament\Provider\Resources\Venues\RelationManagers\ResourcesRelationManager;
 use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Widgets\OnboardingWidget;
+use App\Models\Activity;
 use App\Models\Sector;
 use App\Models\Venue;
 use App\Services\VenueService;
+use App\Support\MapsLink;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 /**
@@ -81,6 +84,66 @@ class VenueManagementTest extends ProviderPanelTestCase
             ->assertHasFormErrors(['name_ar' => 'required', 'city_id' => 'required']);
     }
 
+    public function test_the_store_form_starts_from_the_sign_up_details_and_its_maps_link(): void
+    {
+        $this->venue->forceDelete();
+        Http::fake(['maps.app.goo.gl/*' => Http::response('', 302, [
+            'Location' => 'https://www.google.com/maps/place/Boulevard+World,+Riyadh/@24.78,46.60,17z/data=!3m1!4b1!4m6!3m5!8m2!3d24.7855041!4d46.6026496',
+        ]), 'www.google.com/*' => Http::response('<html></html>')]);
+        $this->provider->update(['name_ar' => 'منشأة الاختبار', 'phone' => '+966512223344', 'maps_url' => 'https://maps.app.goo.gl/TestLink1']);
+        $this->asOwner();
+
+        Livewire::test(CreateVenue::class)
+            ->assertSchemaStateSet([
+                'name_ar' => 'منشأة الاختبار', 'phone' => '0512223344',
+                'lat' => 24.7855041, 'lng' => 46.6026496, 'address' => 'Boulevard World, Riyadh',
+            ])
+            // A second branch: another link fills the point again.
+            ->fillForm(['maps_link' => 'https://www.google.com/maps/place/x/@21.5,39.2,17z/data=!3d21.5433!4d39.1728'])
+            ->assertSchemaStateSet(['lat' => 21.5433, 'lng' => 39.1728]);
+
+        $this->assertSame(['lat' => 24.7136, 'lng' => 46.6753, 'address' => null], MapsLink::parse('https://maps.google.com/?q=24.7136,46.6753'));
+        $this->assertFalse(MapsLink::parse('https://www.google.com/maps/@not-a-point'));
+    }
+
+    /** SSRF: a short link that redirects off Google (an old goo.gl link can point anywhere) is not followed. */
+    public function test_a_maps_short_link_is_never_followed_away_from_google(): void
+    {
+        Http::fake([
+            'goo.gl/*' => Http::response('', 302, ['Location' => 'https://169.254.169.254/latest/meta-data/@24.7,46.6']),
+            '169.254.169.254/*' => Http::response('secret'),
+        ]);
+
+        $this->assertNull(MapsLink::resolve('https://goo.gl/maps/Internal1'));
+        Http::assertNotSent(fn ($request) => str_contains($request->url(), '169.254.169.254'));
+        $this->assertTrue(MapsLink::isGoogleHost('consent.google.com'));
+        $this->assertFalse(MapsLink::isGoogleHost('google.com.evil.example'));
+        $this->assertFalse(MapsLink::isGoogleHost('evilgoogle.com'));
+    }
+
+    public function test_what_was_typed_survives_a_refresh_and_a_second_create_click_is_not_a_403(): void
+    {
+        $this->venue->forceDelete();
+        $this->asOwner();
+
+        Livewire::test(CreateVenue::class)->set('data.summary_ar', 'نص لم يُحفظ بعد');
+        // A refresh (a new page) brings it back.
+        $page = Livewire::test(CreateVenue::class)->assertSet('data.summary_ar', 'نص لم يُحفظ بعد');
+
+        $page->fillForm(['name_ar' => 'صالة', 'city_id' => $this->city->id, 'phone' => '0512223344', 'audience' => 'all',
+            'advance_booking_days' => 7, 'hours' => $this->hours()])
+            ->call('create')->assertHasNoFormErrors()
+            // The same page sending "create" again goes to the store, not to a 403.
+            ->call('create')->assertRedirect();
+        $this->assertSame(1, $this->provider->venues()->count());
+
+        // Sent: the draft is gone.
+        Livewire::test(ListVenues::class);
+        $this->venue = $this->provider->venues()->first();
+        $this->venue->forceDelete();
+        Livewire::test(CreateVenue::class)->assertSet('data.summary_ar', null);
+    }
+
     public function test_venue_is_created_with_hours_then_activities_resources_and_submitted(): void
     {
         $this->venue->forceDelete(); // a provider adds a venue only when it has none
@@ -95,11 +158,9 @@ class VenueManagementTest extends ProviderPanelTestCase
                 'address' => 'طريق الملك فهد',
                 'lat' => 24.7136,
                 'lng' => 46.6753,
-                'phone' => '+966112223344',
+                'phone' => '0512223344',
                 'audience' => 'families',
                 'min_age' => 12,
-                'refund_policy' => 'flexible',
-                'refund_policy_note' => 'قبل الموعد بساعتين',
                 'advance_booking_days' => 7,
                 // Friday closed, Saturday open past midnight.
                 'hours' => $this->hours([5 => ['is_closed' => true], 6 => ['opens_at' => '16:00', 'closes_at' => '02:00']]),
@@ -112,7 +173,7 @@ class VenueManagementTest extends ProviderPanelTestCase
         $this->assertSame(VenueStatus::Draft, $venue->status);
         $this->assertSame('families', $venue->audience);
         $this->assertSame(7, (int) $venue->advance_booking_days);
-        $this->assertSame('+966112223344', $venue->phone);
+        $this->assertSame('+966512223344', $venue->phone);
 
         $hours = $venue->hours()->get()->keyBy('weekday');
         $this->assertCount(7, $hours);
@@ -133,11 +194,20 @@ class VenueManagementTest extends ProviderPanelTestCase
         Livewire::test(ViewVenue::class, $view)->callAction('submit')->assertNotified(__('api.venues.no_activities'));
         $this->assertSame(VenueStatus::Draft, $venue->fresh()->status);
 
-        // An activity type the provider is not approved for is refused.
+        // An activity type the provider is not approved for is listed as "needs approval": picking it adds the
+        // activity switched off and waiting for review, and the type joins the store's types as pending.
         $foreignSector = Sector::where('slug', 'bowling')->firstOrFail();
         Livewire::test(ActivitiesRelationManager::class, $managers)
-            ->callTableAction('create', data: ['sector_id' => $foreignSector->id, 'name_ar' => 'بولينج', 'price_per_hour' => 80, 'slot_minutes' => 60, 'min_slots' => 1, 'max_slots' => 2]);
-        $this->assertSame(0, $venue->activities()->count());
+            ->callTableAction('create', data: ['sector_id' => $foreignSector->id, 'name_ar' => 'بولينج', 'price_per_hour' => 80, 'slot_minutes' => 60, 'min_slots' => 1, 'max_slots' => 2])
+            ->assertHasNoTableActionErrors();
+        $bowling = $venue->activities()->where('sector_id', $foreignSector->id)->firstOrFail();
+        $this->assertSame([Activity::PENDING, false], [$bowling->review_status, $bowling->is_active]);
+        $this->assertSame('pending', $this->provider->sectors()->whereKey($foreignSector->id)->first()->pivot->status);
+
+        // Approving the activity approves the type for the store.
+        app(VenueService::class)->approveActivity($bowling, $this->admin);
+        $this->assertSame('approved', $this->provider->sectors()->whereKey($foreignSector->id)->first()->pivot->status);
+        $bowling->delete();
 
         Livewire::test(ActivitiesRelationManager::class, $managers)
             ->callTableAction('create', data: [

@@ -8,6 +8,7 @@ use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Models\Activity;
 use App\Models\BookingSlot;
 use App\Models\Resource;
@@ -296,7 +297,7 @@ class Schedule extends Page
                         ]) : null),
                     TextInput::make('customer.name')->label(__('provider.fields.customer_name'))->maxLength(120)
                         ->visible(fn (Get $get) => $get('mode') === 'book')->required(fn (Get $get) => $get('mode') === 'book'),
-                    TextInput::make('customer.phone')->label(__('provider.fields.phone'))->tel()->maxLength(20)
+                    SaudiInput::mobile('customer.phone')->label(__('provider.fields.phone'))
                         ->visible(fn (Get $get) => $get('mode') === 'book'),
                     Select::make('payment_method')->label(__('provider.fields.payment_method'))
                         ->options(collect(['cash', 'transfer', 'pos'])->mapWithKeys(fn ($m) => [$m => __("provider.orders.payment_methods.{$m}")]))

@@ -6,9 +6,11 @@ use App\Enums\VenueStatus;
 use App\Exceptions\BusinessException;
 use App\Models\Activity;
 use App\Models\Provider;
+use App\Models\Sector;
 use App\Models\User;
 use App\Models\Venue;
 use App\Notifications\SystemNotification;
+use App\Support\AdminNotifier;
 use App\Support\Once;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -163,11 +165,49 @@ class VenueService
         return ['is_active' => false, 'review_status' => Activity::PENDING, 'review_note' => null] + $data;
     }
 
+    /**
+     * Activity types a store may use straight away: those approved for it (before its own approval, the ones it chose
+     * at sign-up, which are approved together with it).
+     *
+     * @return array<int, int> sector ids
+     */
+    public function readySectorIds(Provider $provider): array
+    {
+        return ($provider->isApproved() ? $provider->approvedSectors() : $provider->sectors())->pluck('sectors.id')->all();
+    }
+
+    /**
+     * Any active type can be picked for an activity. One the store is not approved for yet joins its types as
+     * "pending", and the activity waits for the platform's review: approving the activity approves the type too.
+     * Returns the review state the activity must take ([] when the type is ready).
+     */
+    public function prepareSector(Provider $provider, int $sectorId): array
+    {
+        if (in_array($sectorId, $this->readySectorIds($provider), true)) {
+            return [];
+        }
+        if (! Sector::whereKey($sectorId)->where('is_active', true)->exists()) {
+            throw new BusinessException(__('api.venues.sector_not_allowed'), 'sector_not_allowed', 403);
+        }
+
+        $provider->sectors()->syncWithoutDetaching([$sectorId => ['status' => 'pending']]);
+        AdminNotifier::send(['operations'], 'admin_activity_new_sector',
+            ['name' => $provider->name_ar, 'sector' => Sector::find($sectorId)?->name_ar], ['provider_id' => $provider->id]);
+
+        return ['review_status' => Activity::PENDING, 'is_active' => false, 'review_note' => null, 'reviewed_at' => null];
+    }
+
     public function approveActivity(Activity $activity, User $by): void
     {
         // A second click (or a second admin at the same moment) must not decide or notify twice.
         if (! Once::first($activity, 'review_status', Activity::APPROVED)) {
             return;
+        }
+
+        // Approving an activity of a type the store was not approved for approves that type for the store as well.
+        $provider = $activity->venue->provider;
+        if ($provider->sectors()->wherePivot('status', 'pending')->where('sectors.id', $activity->sector_id)->exists()) {
+            $provider->sectors()->updateExistingPivot($activity->sector_id, ['status' => 'approved']);
         }
 
         $activity->update(['review_status' => Activity::APPROVED, 'is_active' => true, 'review_note' => null, 'reviewed_at' => now()]);

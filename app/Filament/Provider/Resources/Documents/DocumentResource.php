@@ -12,6 +12,7 @@ use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
 use App\Models\ProviderDocument;
+use App\Services\ProviderService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -52,7 +53,10 @@ class DocumentResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = ProviderAccess::provider()?->documents()->whereIn('status', [DocumentStatus::Rejected, DocumentStatus::Expired])->count();
+        $provider = ProviderAccess::provider();
+        // Rejected or expired documents, plus what the platform asked for and has not received.
+        $count = $provider ? $provider->documents()->whereIn('status', [DocumentStatus::Rejected, DocumentStatus::Expired])->count()
+            + $provider->documentRequests()->open()->count() : 0;
 
         return $count ? (string) $count : null;
     }
@@ -92,7 +96,7 @@ class DocumentResource extends Resource
             throw new BusinessException(__('api.providers.document_locked'), 'document_locked');
         }
 
-        return DB::transaction(function () use ($provider, $data, $old) {
+        $document = DB::transaction(function () use ($provider, $data, $old) {
             if ($old) {
                 if ($old->file_path && ! str_starts_with($old->file_path, 'demo/')) {
                     Storage::disk(ProviderDocument::DISK)->delete($old->file_path);
@@ -111,6 +115,9 @@ class DocumentResource extends Resource
                 'status' => DocumentStatus::Pending,
             ]);
         });
+        app(ProviderService::class)->documentUploaded($document);
+
+        return $document;
     }
 
     public static function table(Table $table): Table

@@ -17,11 +17,15 @@ use App\Filament\Provider\Resources\Venues\RelationManagers\ResourcesRelationMan
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Venue;
 use App\Models\VenueHour;
+use App\Rules\GoogleMapsLink;
 use App\Services\VenueService;
+use App\Support\Geo;
+use App\Support\MapsLink;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
@@ -43,6 +47,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Exceptions\Halt;
 use Filament\Tables\Columns\ImageColumn;
@@ -172,6 +177,31 @@ class VenueResource extends Resource
         throw (new Halt)->rollBackDatabaseTransaction();
     }
 
+    /** A Google Maps link was pasted: its point, address and city go into the form (or the owner is told to type them). */
+    public static function fillFromMapsLink(?string $link, Set $set): void
+    {
+        if (blank($link)) {
+            return;
+        }
+
+        $point = MapsLink::resolve($link);
+        if (! $point) {
+            Notification::make()->warning()->title(__('provider.venues.maps_link_unread'))->send();
+
+            return;
+        }
+
+        $set('lat', $point['lat']);
+        $set('lng', $point['lng']);
+        if ($point['address']) {
+            $set('address', $point['address']);
+        }
+        if ($city = Geo::nearestCity($point['lat'], $point['lng'])) {
+            $set('city_id', $city->id);
+        }
+        Notification::make()->success()->title(__('provider.venues.maps_link_read'))->send();
+    }
+
     /**
      * The venue form in clear sections. Edit shows them as tabs; create walks through
      * them as wizard steps (CreateVenue::getSteps()). Working hours are part of the
@@ -182,6 +212,11 @@ class VenueResource extends Resource
     public static function formSections(bool $withHours = true): array
     {
         $provider = ProviderAccess::provider();
+        // A new store starts where the sign-up link points (read once per form, only when the form is filled).
+        $point = null;
+        $fromLink = function () use (&$point, $provider): array {
+            return $point ??= MapsLink::resolve($provider?->maps_url) ?? [];
+        };
 
         $sections = [
             'details' => [
@@ -190,8 +225,12 @@ class VenueResource extends Resource
                 'icon' => 'heroicon-o-information-circle',
                 'columns' => 2,
                 'schema' => [
-                    TextInput::make('name_ar')->label(__('provider.fields.name_ar'))->required()->maxLength(200),
-                    TextInput::make('name_en')->label(__('provider.fields.name_en'))->maxLength(200),
+                    // Starts as the business name typed at sign-up (one store per business); it can be changed
+                    // when the store trades under another name.
+                    TextInput::make('name_ar')->label(__('provider.fields.store_name_ar'))->required()->maxLength(200)
+                        ->default($provider?->name_ar)->helperText(__('provider.venues.name_hint')),
+                    TextInput::make('name_en')->label(__('provider.fields.store_name_en'))->maxLength(200)
+                        ->default($provider?->name_en),
                     Textarea::make('summary_ar')->label(__('provider.fields.summary_ar'))->rows(2)->maxLength(500),
                     Textarea::make('summary_en')->label(__('provider.fields.summary_en'))->rows(2)->maxLength(500),
                     Textarea::make('description_ar')->label(__('provider.fields.description_ar'))->rows(6)->maxLength(20000),
@@ -207,13 +246,27 @@ class VenueResource extends Resource
                 'columns' => 2,
                 'schema' => [
                     Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
-                        ->default($provider?->city_id)
+                        ->default(fn () => isset($fromLink()['lat'])
+                            ? Geo::nearestCity($fromLink()['lat'], $fromLink()['lng'])?->id ?? $provider?->city_id
+                            : $provider?->city_id)
                         ->options(fn () => City::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
-                    TextInput::make('phone')->label(__('provider.fields.venue_phone'))->tel()->maxLength(20)
+                    SaudiInput::mobile()->label(__('provider.fields.venue_phone'))
+                        ->default(SaudiInput::localMobile($provider?->phone))
                         ->helperText(__('provider.venues.phone_hint')),
-                    TextInput::make('address')->label(__('provider.fields.address'))->maxLength(255)->columnSpanFull(),
-                    TextInput::make('lat')->label(__('provider.fields.lat'))->numeric()->minValue(-90)->maxValue(90),
-                    TextInput::make('lng')->label(__('provider.fields.lng'))->numeric()->minValue(-180)->maxValue(180),
+                    // The Google Maps link from sign-up fills the point, the address and the city; pasting
+                    // another link (the store moved) fills them again. The link itself is not stored on the store.
+                    TextInput::make('maps_link')->label(__('provider.fields.maps_url'))->columnSpanFull()->dehydrated(false)
+                        ->url()->rule('url:http,https')->rule(new GoogleMapsLink)->maxLength(500)
+                        ->default($provider?->maps_url)->placeholder('https://maps.app.goo.gl/...')
+                        ->helperText(__('provider.venues.maps_link_hint'))->extraInputAttributes(['dir' => 'ltr'])
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(fn (?string $state, Set $set) => static::fillFromMapsLink($state, $set)),
+                    TextInput::make('address')->label(__('provider.fields.address'))->maxLength(255)->columnSpanFull()
+                        ->default(fn () => $fromLink()['address'] ?? null),
+                    TextInput::make('lat')->label(__('provider.fields.lat'))->numeric()->minValue(-90)->maxValue(90)
+                        ->default(fn () => $fromLink()['lat'] ?? null),
+                    TextInput::make('lng')->label(__('provider.fields.lng'))->numeric()->minValue(-180)->maxValue(180)
+                        ->default(fn () => $fromLink()['lng'] ?? null),
                 ],
             ],
             'hours' => [
@@ -232,11 +285,8 @@ class VenueResource extends Resource
                     Select::make('audience')->label(__('provider.fields.audience'))->options(static::options('audiences', self::AUDIENCES))
                         ->default('all')->required(),
                     TextInput::make('min_age')->label(__('provider.fields.min_age'))->numeric()->minValue(0)->maxValue(99),
-                    Select::make('refund_policy')->label(__('provider.fields.refund_policy'))->options(static::options('refund_policies', self::REFUND_POLICIES))
-                        ->default('moderate')->required(),
                     TextInput::make('advance_booking_days')->label(__('provider.fields.advance_booking_days'))->integer()->minValue(1)->maxValue(365)
                         ->default(14)->required()->helperText(__('provider.venues.advance_hint')),
-                    Textarea::make('refund_policy_note')->label(__('provider.fields.refund_policy_note'))->rows(2)->maxLength(1000)->columnSpanFull(),
                 ],
             ],
         ];
@@ -380,8 +430,6 @@ class VenueResource extends Resource
                     TextEntry::make('phone')->label(__('provider.fields.venue_phone'))->formatStateUsing(fn ($state) => Fmt::phone($state))->placeholder('-'),
                     TextEntry::make('audience')->label(__('provider.fields.audience'))->formatStateUsing(fn ($state) => __("provider.venues.audiences.{$state}")),
                     TextEntry::make('min_age')->label(__('provider.fields.min_age'))->placeholder('-'),
-                    TextEntry::make('refund_policy')->label(__('provider.fields.refund_policy'))
-                        ->formatStateUsing(fn ($state) => __("provider.venues.refund_policies.{$state}"))->helperText(fn (Venue $r) => $r->refund_policy_note),
                     TextEntry::make('advance_booking_days')->label(__('provider.fields.advance_booking_days')),
                     TextEntry::make('min_price')->label(__('provider.fields.min_price'))->formatStateUsing(fn ($state) => Fmt::sar($state)),
                     TextEntry::make('views_count')->label(__('provider.fields.views'))->numeric(),

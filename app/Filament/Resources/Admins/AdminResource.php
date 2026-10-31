@@ -10,7 +10,9 @@ use App\Filament\Resources\Admins\Pages\CreateAdmin;
 use App\Filament\Resources\Admins\Pages\EditAdmin;
 use App\Filament\Resources\Admins\Pages\ListAdmins;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Models\User;
+use App\Services\OtpService;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
@@ -23,6 +25,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\Rules\Password;
 
 /** Dashboard staff accounts (users.type = admin) and their roles. */
 class AdminResource extends Resource
@@ -73,10 +76,16 @@ class AdminResource extends Resource
                 TextInput::make('name')->label(__('admin.fields.name'))->required()->maxLength(255),
                 TextInput::make('email')->label(__('admin.fields.email'))->email()->required()->maxLength(255)
                     ->unique('users', 'email', ignoreRecord: true),
-                TextInput::make('phone')->label(__('admin.fields.phone'))->tel()->maxLength(20)
-                    ->unique('users', 'phone', ignoreRecord: true),
+                // Compared in its stored form (+9665...), whatever way it was typed.
+                SaudiInput::mobile()->label(__('admin.fields.phone'))
+                    ->rule(fn (?Model $record) => function (string $attribute, mixed $value, \Closure $fail) use ($record): void {
+                        if (filled($value) && User::withTrashed()->where('phone', OtpService::normalize((string) $value))
+                            ->when($record, fn (Builder $q) => $q->whereKeyNot($record->getKey()))->exists()) {
+                            $fail(__('validation.unique', ['attribute' => __('admin.fields.phone')]));
+                        }
+                    }),
                 TextInput::make('password')->label(__('admin.fields.password'))->password()->revealable()
-                    ->minLength(8)->maxLength(255)
+                    ->rule(Password::default())->maxLength(255)
                     ->required(fn (string $operation) => $operation === 'create')
                     ->dehydrated(fn ($state) => filled($state))
                     ->helperText(fn (string $operation) => $operation === 'edit' ? __('admin.hints.password_keep') : null),

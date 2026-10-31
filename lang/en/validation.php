@@ -181,6 +181,13 @@ return [
     */
 
     'custom' => [
+        'mobile' => [
+            'format' => 'Enter a 10-digit Saudi mobile number starting with 05, e.g. 0512345678.',
+        ],
+        'iban' => [
+            'format' => 'A Saudi IBAN has 24 characters: SA then 22 digits (you entered :length). Example: SA0380000000608010167519',
+            'checksum' => 'This IBAN is not valid: one of its digits is wrong. Copy it as it is from your bank app.',
+        ],
         'maps_url' => [
             'google' => 'Paste the link to your place from Google Maps (e.g. https://maps.app.goo.gl/...).',
         ],

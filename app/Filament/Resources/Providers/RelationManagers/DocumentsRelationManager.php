@@ -9,12 +9,14 @@ use App\Filament\Resources\ProviderDocuments\ProviderDocumentResource;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
 use App\Models\ProviderDocument;
+use App\Models\ProviderDocumentRequest;
 use App\Services\ProviderService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -72,6 +74,12 @@ class DocumentsRelationManager extends RelationManager
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with('sector')->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END"))
             ->defaultSort('created_at', 'desc')
+            // What the provider was asked for and has not sent yet.
+            ->description(function () {
+                $open = $this->getOwnerRecord()->documentRequests()->open()->get();
+
+                return $open->isEmpty() ? null : __('admin.documents.waiting_for', ['list' => $open->map->label()->implode('، ')]);
+            })
             ->columns([
                 TextColumn::make('type')->label(__('admin.fields.document_type'))->badge()->color('gray'),
                 TextColumn::make('number')->label(__('admin.fields.document_number'))->placeholder('-'),
@@ -83,7 +91,27 @@ class DocumentsRelationManager extends RelationManager
                 TextColumn::make('created_at')->label(__('admin.fields.uploaded_at'))->since(),
             ])
             ->headerActions([
-                CreateAction::make()->mutateDataUsing(fn (array $data) => $data + ['status' => DocumentStatus::Pending]),
+                Action::make('request')->label(__('admin.documents.request'))->icon('heroicon-o-document-plus')->color('warning')
+                    ->visible(fn () => Act::can('documents.manage'))
+                    ->modalDescription(__('admin.documents.request_hint'))
+                    ->schema([
+                        Select::make('type')->label(__('admin.fields.document_type'))->options(DocumentType::class)->required(),
+                        Textarea::make('note')->label(__('admin.documents.request_note'))->rows(2)->maxLength(500)
+                            ->placeholder(__('admin.documents.request_note_placeholder')),
+                    ])
+                    ->action(fn (array $data) => Act::run(fn () => $service()->requestDocument(
+                        $this->getOwnerRecord(), DocumentType::from($data['type'] instanceof DocumentType ? $data['type']->value : (string) $data['type']), $data['note'] ?? null, auth()->user(),
+                    ), __('admin.documents.requested'))),
+                Action::make('cancelRequest')->label(__('admin.documents.cancel_request'))->icon('heroicon-o-x-mark')->color('gray')
+                    ->visible(fn () => Act::can('documents.manage') && $this->getOwnerRecord()->documentRequests()->open()->exists())
+                    ->schema([
+                        Select::make('request_id')->label(__('admin.documents.open_requests'))->required()
+                            ->options(fn () => $this->getOwnerRecord()->documentRequests()->open()->get()
+                                ->mapWithKeys(fn (ProviderDocumentRequest $r) => [$r->id => $r->label()])),
+                    ])
+                    ->action(fn (array $data) => $this->getOwnerRecord()->documentRequests()->open()->whereKey($data['request_id'])->delete()),
+                CreateAction::make()->mutateDataUsing(fn (array $data) => $data + ['status' => DocumentStatus::Pending])
+                    ->after(fn (ProviderDocument $record) => $service()->documentUploaded($record)),
             ])
             ->recordActions([
                 Action::make('file')->label(__('admin.actions.preview'))->icon('heroicon-o-eye')->color('gray')

@@ -37,6 +37,7 @@ use App\Services\Integrations\Drivers\LogSmsSender;
 use App\Services\Integrations\Drivers\NullAccountingClient;
 use App\Services\OtpService;
 use App\Support\PhoneScanner;
+use Filament\Forms\Components\FileUpload;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Auth\Events\Login;
@@ -116,6 +117,11 @@ class AppServiceProvider extends ServiceProvider
         $this->harden();
         $this->recordSignIns();
 
+        // An upload field's value is a path the browser sends back: without this a dashboard user could point their
+        // record at another provider's file (a private document, someone else's logo) and read it or have it deleted.
+        // Only the path the record already had, or a fresh upload, is accepted.
+        FileUpload::configureUsing(fn (FileUpload $upload) => $upload->preventFilePathTampering());
+
         // Registered here so it runs after Livewire's own RequestHandled listener (script injection).
         Event::listen(RequestHandled::class, fn (RequestHandled $event) => CompressResponse::compress($event->request, $event->response));
 
@@ -138,8 +144,9 @@ class AppServiceProvider extends ServiceProvider
     /** Settings that must hold on a real server whatever the .env file says. */
     private function harden(): void
     {
-        // New passwords on the dashboards: long enough everywhere, and mixed on a real server.
-        Password::defaults(fn () => $this->app->isProduction() ? Password::min(10)->letters()->numbers() : Password::min(8));
+        // New passwords on the dashboards: 8 characters or more with a capital and a small English letter,
+        // a digit and a symbol (sign-up, profile, reset, team members).
+        Password::defaults(fn () => Password::min(8)->mixedCase()->numbers()->symbols());
 
         if ($this->app->isProduction()) {
             URL::forceScheme('https');

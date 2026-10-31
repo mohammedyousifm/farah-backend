@@ -40,7 +40,8 @@ class Dashboard extends BaseDashboard
         }
 
         return [
-            ...(OnboardingWidget::needsVenueSetup(ProviderAccess::provider()) ? [OnboardingWidget::class] : []),
+            ...(OnboardingWidget::needsVenueSetup($provider = ProviderAccess::provider()) || OnboardingWidget::hasOpenRequests($provider)
+                ? [OnboardingWidget::class] : []),
             ProviderStatsWidget::class, UpcomingBookingsWidget::class, LatestOrdersWidget::class,
         ];
     }

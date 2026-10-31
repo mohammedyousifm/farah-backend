@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Provider;
 
+use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
 use App\Enums\UserType;
+use App\Exceptions\BusinessException;
 use App\Filament\Provider\Pages\Auth\RegisterProvider;
 use App\Filament\Provider\Pages\CheckIn;
 use App\Filament\Provider\Pages\Dashboard;
@@ -239,7 +241,7 @@ class ProviderPanelTest extends ProviderPanelTestCase
 
         $missing = OnboardingWidget::missingProfileFields($this->provider->fresh());
         $this->assertContains(__('provider.fields.iban'), $missing);
-        $this->assertCount(2, OnboardingWidget::documentChecklist($this->provider, $this->provider->documents()->get()));
+        $this->assertSame([], OnboardingWidget::documentChecklist($this->provider)); // nothing is asked up front
     }
 
     public function test_suspended_provider_is_read_only(): void
@@ -267,8 +269,8 @@ class ProviderPanelTest extends ProviderPanelTestCase
                 'name' => 'New Owner',
                 'email' => 'new.owner@example.com',
                 'phone' => '0551234567',
-                'password' => 'secret-pass-123',
-                'passwordConfirmation' => 'secret-pass-123',
+                'password' => 'Secret-pass-123',
+                'passwordConfirmation' => 'Secret-pass-123',
                 'name_ar' => 'منشأة جديدة',
                 'name_en' => 'New Co',
                 'cr_number' => '1010101010',
@@ -283,13 +285,75 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $provider = $user->ownedProvider;
         $this->assertSame(UserType::Provider, $user->type);
         $this->assertSame('+966551234567', $user->phone);
-        $this->assertTrue(Hash::check('secret-pass-123', $user->password));
+        $this->assertTrue(Hash::check('Secret-pass-123', $user->password));
         $this->assertSame(ProviderStatus::Pending, $provider->status);
         $this->assertSame('establishment', $provider->type->value);
         $this->assertSame('https://maps.app.goo.gl/AbCdEf123456', $provider->maps_url);
         $this->assertTrue($provider->members()->where('user_id', $user->id)->where('role', 'owner')->exists());
         $this->assertAuthenticatedAs($user, 'provider');
         $this->get(Dashboard::getUrl(tenant: $provider))->assertOk();
+    }
+
+    public function test_registration_checks_mobile_password_and_iban_and_mistakes_cost_no_try(): void
+    {
+        Filament::setCurrentPanel(Filament::getPanel('provider'));
+
+        $form = [
+            'name' => 'New Owner', 'email' => 'strict.owner@example.com', 'phone' => '05512345',
+            'password' => 'password1', 'passwordConfirmation' => 'password1',
+            'name_ar' => 'منشأة', 'cr_number' => '1010101010', 'maps_url' => 'https://maps.app.goo.gl/AbCdEf123456',
+            'city_id' => City::first()->id, 'sector_ids' => [Sector::first()->id], 'iban' => 'SA0380000000608010167518',
+        ];
+        $page = Livewire::test(RegisterProvider::class);
+
+        // Five wrong presses in a row: each shows the mistakes, none uses up a try.
+        foreach (range(1, 5) as $ignored) {
+            $page->fillForm($form)->call('register')->assertHasFormErrors(['phone', 'password']);
+        }
+        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026'])
+            ->call('register')->assertHasFormErrors(['iban']);
+        $this->assertSame(0, User::where('email', 'strict.owner@example.com')->count());
+
+        // A copied IBAN with spaces and lower case, and a strong password, go through.
+        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026',
+            'iban' => 'sa03 8000 0000 6080 1016 7519'])
+            ->call('register')->assertHasNoFormErrors();
+
+        $user = User::where('email', 'strict.owner@example.com')->firstOrFail();
+        $this->assertSame('+966551234560', $user->phone);
+        $this->assertSame('SA0380000000608010167519', $user->ownedProvider->iban);
+    }
+
+    public function test_the_platform_asks_for_a_document_and_the_provider_sees_exactly_that(): void
+    {
+        Storage::fake('local');
+        $service = app(ProviderService::class);
+        $this->provider->update(['status' => ProviderStatus::Pending, 'approved_at' => null]);
+
+        $service->requestDocument($this->provider, DocumentType::License, 'ترخيص نشاط الألعاب الإلكترونية', $this->admin);
+
+        $rows = OnboardingWidget::documentChecklist($this->provider);
+        $this->assertCount(1, $rows);
+        $this->assertSame('todo', $rows[0]['state']);
+        $this->assertStringContainsString('ترخيص نشاط الألعاب الإلكترونية', $rows[0]['label']);
+        $this->assertSame('document_requested', $this->owner->notifications()->latest()->first()?->data['key']);
+
+        // Approval waits for it.
+        try {
+            $service->approve($this->provider, $this->admin);
+            $this->fail('approved with a requested document missing');
+        } catch (BusinessException $e) {
+            $this->assertSame('requested_documents', $e->errorCode);
+        }
+
+        // The provider uploads it: the request is answered and waits for review; a rejection opens it again.
+        $this->asOwner();
+        $document = DocumentResource::store(['type' => 'license', 'file_path' => UploadedFile::fake()->create('l.pdf', 10)->store('d', 'local')]);
+        $this->assertSame('waiting', OnboardingWidget::documentChecklist($this->provider)[0]['state']);
+        $this->assertFalse(OnboardingWidget::hasOpenRequests($this->provider));
+
+        $service->rejectDocument($document, $this->admin, 'غير واضح');
+        $this->assertTrue(OnboardingWidget::hasOpenRequests($this->provider));
     }
 
     public function test_profile_documents_sector_request_and_review_reply(): void
@@ -351,17 +415,90 @@ class ProviderPanelTest extends ProviderPanelTestCase
             ->callAction('invite', [
                 'name' => 'Door Staff', 'email' => 'door@example.com', 'phone' => '0559998887',
                 'role' => 'staff', 'permissions' => ['bookings.checkin'],
-                'access' => 'password', 'password' => 'temp-pass-123',
+                'access' => 'password', 'password' => 'Temp-pass-123',
             ])
             ->assertHasNoActionErrors();
 
         $member = User::where('email', 'door@example.com')->firstOrFail();
-        $this->assertTrue(Hash::check('temp-pass-123', $member->password));
+        $this->assertTrue(Hash::check('Temp-pass-123', $member->password));
         $membership = ProviderMember::where('user_id', $member->id)->where('provider_id', $this->provider->id)->firstOrFail();
         $this->assertTrue($membership->allows('bookings.checkin'));
         $this->assertFalse($membership->allows('venues.manage'));
         $this->assertFalse($membership->allows('finance.view'));
         Notification::assertSentTo($member, SystemNotification::class);
+    }
+
+    /**
+     * Account takeover: inviting an existing account (an app customer signs in by OTP and has no password) must never
+     * give it a password chosen by the inviter, who could then sign in as that person and act for their own store.
+     */
+    public function test_team_invite_never_sets_a_password_on_an_existing_account(): void
+    {
+        Notification::fake();
+        $victim = $this->customer('+966501231234', ['name' => 'Other Owner', 'email' => 'victim@example.com']);
+        $this->assertNull($victim->password);
+        $this->asOwner();
+
+        foreach ([['email' => 'victim@example.com', 'phone' => null], ['email' => 'someone-new@example.com', 'phone' => '0501231234']] as $i => $who) {
+            Livewire::test(ManageMembers::class)
+                ->callAction('invite', $who + [
+                    'name' => 'Victim', 'role' => 'staff', 'permissions' => ['orders.view'],
+                    'access' => 'password', 'password' => 'Attacker-pass-1',
+                ])
+                ->assertHasNoActionErrors();
+            if ($i === 0) {
+                ProviderMember::where('user_id', $victim->id)->update(['is_active' => false]);
+            }
+        }
+
+        $this->assertNull($victim->fresh()->password);
+        $this->assertFalse(User::where('email', 'someone-new@example.com')->exists());
+    }
+
+    /** Staff holding team.manage cannot hand out more than they hold (same rule as the provider API). */
+    public function test_staff_with_team_manage_cannot_grant_more_than_they_hold(): void
+    {
+        Notification::fake();
+        $this->actingAs($this->staff(['team.manage', 'orders.view']), 'provider');
+        $this->panel();
+
+        Livewire::test(ManageMembers::class)->callAction('invite', [
+            'name' => 'Alt', 'email' => 'alt@example.com', 'role' => 'manager', 'access' => 'reset_link',
+        ]);
+        Livewire::test(ManageMembers::class)->callAction('invite', [
+            'name' => 'Alt', 'email' => 'alt2@example.com', 'role' => 'staff', 'permissions' => ['finance.view'], 'access' => 'reset_link',
+        ]);
+        $this->assertFalse(User::whereIn('email', ['alt@example.com', 'alt2@example.com'])->exists());
+
+        $other = $this->staff(['orders.view'], 'other@example.com');
+        $membership = ProviderMember::where('user_id', $other->id)->firstOrFail();
+        Livewire::test(ManageMembers::class)->callTableAction('edit_access', $membership, ['role' => 'manager']);
+        Livewire::test(ManageMembers::class)->callTableAction('edit_access', $membership, ['role' => 'staff', 'permissions' => ['profile.manage']]);
+        $this->assertSame('staff', $membership->fresh()->role);
+        $this->assertSame(['orders.view'], $membership->fresh()->permissions);
+
+        // Within their own rights it works.
+        Livewire::test(ManageMembers::class)->callAction('invite', [
+            'name' => 'Helper', 'email' => 'helper@example.com', 'role' => 'staff', 'permissions' => ['orders.view'], 'access' => 'reset_link',
+        ])->assertHasNoActionErrors();
+        $this->assertTrue(User::where('email', 'helper@example.com')->exists());
+    }
+
+    /** A dashboard upload field only takes a fresh upload or the record's own path, never another provider's file. */
+    public function test_upload_fields_reject_a_tampered_file_path(): void
+    {
+        Storage::fake('local');
+        $other = $this->provider(null, 'Other');
+        $secret = "providers/{$other->id}/documents/national-id.pdf";
+        Storage::disk('local')->put($secret, '%PDF-1.4 secret');
+        $this->asOwner();
+
+        $docs = $this->provider->documents()->count();
+        Livewire::test(ManageDocuments::class)
+            ->callAction('create', ['type' => 'license', 'number' => 'LIC-2', 'file_path' => ['tampered' => $secret]])
+            ->assertHasActionErrors(['file_path']);
+        $this->assertSame($docs, $this->provider->documents()->count());
+        $this->assertTrue(Storage::disk('local')->exists($secret));
     }
 
     public function test_global_search_is_scoped_to_the_tenant(): void

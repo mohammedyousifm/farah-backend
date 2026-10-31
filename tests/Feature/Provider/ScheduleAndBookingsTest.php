@@ -188,7 +188,7 @@ class ScheduleAndBookingsTest extends ProviderPanelTestCase
             ->assertNotified(__('provider.schedule.booked_done'));
 
         $order = $this->provider->orders()->latest('id')->firstOrFail();
-        $this->assertSame(['offline', OrderStatus::Confirmed, 'pos', 'أحمد', '0551112223', 'عيد ميلاد', $this->owner->id, $this->venue->id],
+        $this->assertSame(['offline', OrderStatus::Confirmed, 'pos', 'أحمد', '+966551112223', 'عيد ميلاد', $this->owner->id, $this->venue->id],
             [$order->channel, $order->status, $order->offline_payment_method, $order->customer_name, $order->customer_phone, $order->notes, $order->created_by, $order->venue_id]);
         $this->assertSame(200.0, $order->total);
 

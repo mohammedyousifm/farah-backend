@@ -54,8 +54,8 @@ with `FIREBASE_CREDENTIALS=<service-account.json>` sends them through Firebase.
 ## Run locally
 
 ```bash
-composer install && npm install
-cp .env.example .env && php artisan key:generate
+composer install                    # no Node/Vite build: Filament ships its own assets
+cp .env.example .env && php artisan key:generate   # then switch it to the local values listed at its top
 php artisan migrate:fresh --seed     # reference data + demo data (APP_ENV=local)
 php artisan storage:link
 php artisan serve --port=8020        # landing /, admin /admin, providers /provider
@@ -78,7 +78,7 @@ Demo customers: `+966501000000` … `+966501000011`.
 - Filament panel `provider` (`app/Providers/Filament/ProviderPanelProvider.php`, code in `app/Filament/Provider/**`, labels in `lang/{ar,en}/provider.php`).
 - **Tenancy:** `App\Models\Provider` is the tenant (`/provider/{provider-slug}/...`); a user can belong to several providers (tenant switcher). All resources are scoped to the current provider.
 - **Access:** `User::canAccessPanel` is panel-aware: `admin` → active admins; `provider` → active non-admin users with an active `provider_members` row. Admins cannot log in to `/provider`.
-- **Permissions:** every page checks `ProviderMember::allows()` with the same names as the provider API (`venues.manage`, `orders.view`, `orders.manage`, `orders.offline`, `bookings.checkin`, `finance.view`, `team.manage`, `reviews.reply`, `profile.manage`). Owner and manager have everything.
+- **Permissions:** every page checks `ProviderMember::allows()` with the same names as the provider API (`venues.manage`, `orders.view`, `orders.offline`, `bookings.checkin`, `finance.view`, `team.manage`, `reviews.reply`, `profile.manage`). Owner and manager have everything.
 - **Onboarding:** pending / rejected providers see a status banner and only Dashboard (checklist), Profile, Documents, Sectors / sector requests and Team. Suspended = read-only + banner.
 - **Pages:** dashboard (stats, upcoming bookings, latest orders), profile, documents (upload / re-upload), sectors (activity types) + sector requests, venues (details, working hours, cover, gallery, activities and their tables / lanes / rooms, submit for review), schedule (slot grid per resource), bookings, orders (filters, detail, counter booking), check-in (type / scan a booking code), team (invite with temporary password or reset link, roles / permissions, deactivate), finance (balances + ledger statement with sum footer, settlements), reviews (reply).
 - State changes go through the services (`VenueService`, `OrderService::createOffline`, `CheckInService`, `LedgerService::balances`, ...). Refunds stay an admin decision (read-only for providers).

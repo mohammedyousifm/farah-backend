@@ -108,9 +108,16 @@ class TwoStepLoginTest extends AdminTestCase
         $this->actingAs($admin);
         Filament::setCurrentPanel(Filament::getPanel('admin'));
 
+        // The number signs in to the app: moving it asks for the current password, like a new e-mail.
+        Livewire::test(EditProfile::class)
+            ->fillForm(['phone' => '0559998877'])
+            ->call('save')
+            ->assertHasFormErrors(['currentPassword']);
+        $this->assertSame('+966501112233', $admin->fresh()->phone);
+
         Livewire::test(EditProfile::class)
             ->assertSee(__('two_factor.sms.title'))
-            ->fillForm(['phone' => '0559998877'])
+            ->fillForm(['phone' => '0559998877', 'currentPassword' => 'password'])
             ->call('save')
             ->assertHasNoFormErrors();
 
@@ -120,7 +127,7 @@ class TwoStepLoginTest extends AdminTestCase
 
         // A number that belongs to someone else is refused.
         $this->otherAdmin()->forceFill(['phone' => '+966500000009'])->save();
-        Livewire::test(EditProfile::class)->fillForm(['phone' => '0500000009'])->call('save')->assertHasFormErrors(['phone']);
+        Livewire::test(EditProfile::class)->fillForm(['phone' => '0500000009', 'currentPassword' => 'password'])->call('save')->assertHasFormErrors(['phone']);
     }
 
     private function otherAdmin(): User

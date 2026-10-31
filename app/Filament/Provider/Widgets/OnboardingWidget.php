@@ -3,7 +3,6 @@
 namespace App\Filament\Provider\Widgets;
 
 use App\Enums\DocumentStatus;
-use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
 use App\Enums\RequestStatus;
 use App\Enums\SubscriptionStatus;
@@ -15,9 +14,9 @@ use App\Filament\Provider\Resources\Documents\DocumentResource;
 use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Models\Provider;
+use App\Models\ProviderDocumentRequest;
 use App\Models\Venue;
 use Filament\Widgets\Widget;
-use Illuminate\Support\Collection;
 
 /**
  * Checklist shown on the dashboard.
@@ -37,10 +36,10 @@ class OnboardingWidget extends Widget
 
     protected string $view = 'filament.provider.onboarding';
 
-    /** Documents we expect for each provider type (others are optional). */
-    public static function requiredDocuments(Provider $provider): array
+    /** Open document requests: something the platform asked for that has not arrived (or was rejected). */
+    public static function hasOpenRequests(?Provider $provider): bool
     {
-        return [DocumentType::CommercialRegister, DocumentType::IbanLetter];
+        return $provider !== null && $provider->documentRequests()->open()->exists();
     }
 
     /** Profile fields still empty, as translated labels. */
@@ -63,24 +62,25 @@ class OnboardingWidget extends Widget
             ->values()->all();
     }
 
-    /** @return array<int, array{label: string, done: bool}> one row per required document */
-    public static function documentChecklist(Provider $provider, Collection $documents): array
+    /**
+     * No document is asked of every store: only what the platform requested while reviewing it. One row per request
+     * still in play (not sent yet, waiting for review, or rejected); approved answers drop off.
+     *
+     * @return array<int, array{label: string, status: string, state: string}>
+     */
+    public static function documentChecklist(Provider $provider): array
     {
-        return collect(static::requiredDocuments($provider))->map(function (DocumentType $type) use ($documents) {
-            $latest = $documents->where('type', $type)->sortByDesc('id')->first();
-            $status = $latest?->status;
-
-            return [
-                'label' => $type->getLabel(),
-                'status' => $status?->getLabel() ?? __('provider.onboarding.not_uploaded'),
-                'state' => match ($status) {
-                    DocumentStatus::Approved => 'done',
+        return $provider->documentRequests()->with('document')->latest('id')->get()
+            ->reject(fn (ProviderDocumentRequest $r) => $r->document?->status === DocumentStatus::Approved)
+            ->map(fn (ProviderDocumentRequest $r) => [
+                'label' => $r->label(),
+                'status' => $r->document?->status->getLabel() ?? __('provider.onboarding.not_uploaded'),
+                'state' => match ($r->document?->status) {
                     DocumentStatus::Pending => 'waiting',
                     null => 'todo',
                     default => 'problem',
                 },
-            ];
-        })->all();
+            ])->values()->all();
     }
 
     /** Approved provider that has no published venue yet: show the venue set-up steps. */
@@ -152,8 +152,11 @@ class OnboardingWidget extends Widget
     {
         $provider = ProviderAccess::provider();
 
+        $requested = static::documentChecklist($provider);
+        $requestsUrl = ProviderAccess::allows('profile.manage') ? DocumentResource::getUrl() : null;
+
         if ($provider->isApproved()) {
-            $steps = static::venueSteps($provider);
+            $steps = static::needsVenueSetup($provider) ? static::venueSteps($provider) : [];
             $completed = collect($steps)->where('done', true)->count();
 
             return [
@@ -162,9 +165,11 @@ class OnboardingWidget extends Widget
                 'description' => __('provider.onboarding.venue_description'),
                 'readyLabel' => __('provider.onboarding.venue_ready'),
                 'steps' => $steps,
-                'progress' => (int) round($completed / count($steps) * 100),
+                'progress' => $steps ? (int) round($completed / count($steps) * 100) : 100,
                 'readyForReview' => $completed === count($steps),
                 'rejectedDocuments' => 0,
+                'requested' => $requested,
+                'requestsUrl' => $requestsUrl,
             ];
         }
 
@@ -172,8 +177,6 @@ class OnboardingWidget extends Widget
         $canManage = ProviderAccess::allows('profile.manage');
 
         $missing = static::missingProfileFields($provider);
-        $docRows = static::documentChecklist($provider, $documents);
-        $docsDone = collect($docRows)->every(fn ($r) => in_array($r['state'], ['done', 'waiting'], true));
         $sectorCount = $provider->sectors()->count();
         $pendingSectorRequests = $provider->sectorRequests()->where('status', RequestStatus::Pending)->count();
 
@@ -185,13 +188,14 @@ class OnboardingWidget extends Widget
                 'detail' => $missing === [] ? __('provider.onboarding.profile_ok') : __('provider.onboarding.missing', ['fields' => implode('، ', $missing)]),
                 'url' => $canManage ? EditProviderProfile::getUrl() : null,
             ],
-            [
+            // Only when the platform asked for something while reviewing (nothing is required up front).
+            ...($requested === [] ? [] : [[
                 'key' => 'documents',
                 'label' => __('provider.onboarding.step_documents'),
-                'done' => $docsDone,
-                'items' => $docRows,
-                'url' => $canManage ? DocumentResource::getUrl() : null,
-            ],
+                'done' => collect($requested)->every(fn ($r) => $r['state'] === 'waiting'),
+                'items' => $requested,
+                'url' => $requestsUrl,
+            ]]),
             [
                 'key' => 'sectors',
                 'label' => __('provider.onboarding.step_sectors'),
@@ -235,6 +239,8 @@ class OnboardingWidget extends Widget
             'progress' => (int) round($completed / $required->count() * 100),
             'readyForReview' => $completed === $required->count(),
             'rejectedDocuments' => $documents->where('status', DocumentStatus::Rejected)->count(),
+            'requested' => [],
+            'requestsUrl' => null,
         ];
     }
 }

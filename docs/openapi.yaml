@@ -690,7 +690,7 @@ components:
         role: { type: string, enum: [owner, manager, staff] }
         permissions:
           type: array
-          items: { type: string, enum: ['*', venues.manage, orders.view, orders.manage, orders.offline, bookings.checkin, finance.view, team.manage, reviews.reply, profile.manage] }
+          items: { type: string, enum: ['*', venues.manage, orders.view, orders.offline, bookings.checkin, finance.view, team.manage, reviews.reply, profile.manage] }
         is_active: { type: boolean }
     LedgerEntry:
       type: object

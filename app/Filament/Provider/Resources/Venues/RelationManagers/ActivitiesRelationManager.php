@@ -10,6 +10,7 @@ use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Fmt;
 use App\Models\Activity;
 use App\Models\Category;
+use App\Models\Sector;
 use App\Services\VenueService;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -69,10 +70,17 @@ class ActivitiesRelationManager extends RelationManager
         $provider = ProviderAccess::provider();
 
         return $schema->columns(2)->components([
-            Select::make('sector_id')->label(__('provider.fields.activity_type'))->required()->live()
-                // Before approval: the activity types asked for at registration (see VenueService::assertSectorAllowed).
-                ->options(fn () => ($provider?->isApproved() ? $provider->approvedSectors() : $provider?->sectors())
-                    ?->orderBy('sort_order')->pluck('sectors.'.Fmt::col('name'), 'sectors.id') ?? [])
+            // Every activity type, the store's own first ("approved"), then the others ("needs the platform's
+            // approval": picking one sends the activity for review, see VenueService::prepareSector).
+            Select::make('sector_id')->label(__('provider.fields.activity_type'))->required()->live()->searchable()
+                ->options(function () use ($provider) {
+                    $ready = $provider ? app(VenueService::class)->readySectorIds($provider) : [];
+
+                    return Sector::where('is_active', true)->orderBy('sort_order')->get()
+                        ->sortBy(fn (Sector $s) => in_array($s->id, $ready, true) ? 0 : 1, SORT_REGULAR, false)
+                        ->mapWithKeys(fn (Sector $s) => [$s->id => $s->tr('name').' · '.(in_array($s->id, $ready, true)
+                            ? __('provider.venues.sector_ready') : __('provider.venues.sector_needs_approval'))]);
+                })
                 ->afterStateUpdated(fn (Set $set) => $set('category_id', null))
                 ->helperText(__('provider.venues.sector_hint')),
             Select::make('category_id')->label(__('provider.fields.category'))->searchable()
@@ -135,9 +143,8 @@ class ActivitiesRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()->label(__('provider.venues.add_activity'))
                     ->using(function (array $data) {
-                        $this->assertSector((int) $data['sector_id']);
                         $venue = $this->getOwnerRecord();
-                        $state = app(VenueService::class)->newActivityState($venue);
+                        $state = $this->prepareSector((int) $data['sector_id']) + app(VenueService::class)->newActivityState($venue);
 
                         $activity = $venue->activities()->create($state + $data + [
                             'sort_order' => (int) $venue->activities()->max('sort_order') + 1,
@@ -159,8 +166,8 @@ class ActivitiesRelationManager extends RelationManager
                         Notification::make()->success()->title(__('provider.venues.resources_added', ['count' => $count]))->send();
                     }),
                 EditAction::make()->using(function (Activity $record, array $data) {
-                    $this->assertSector((int) $data['sector_id']);
-                    $record->update(app(VenueService::class)->activityUpdateState($record, $data));
+                    $sectorState = $record->sector_id === (int) $data['sector_id'] ? [] : $this->prepareSector((int) $data['sector_id']);
+                    $record->update($sectorState + app(VenueService::class)->activityUpdateState($record, $data));
 
                     return $record;
                 }),
@@ -174,10 +181,11 @@ class ActivitiesRelationManager extends RelationManager
             ]);
     }
 
-    private function assertSector(int $sectorId): void
+    /** @return array<string, mixed> the review state a type the store is not approved for puts the activity in */
+    private function prepareSector(int $sectorId): array
     {
         try {
-            app(VenueService::class)->assertSectorAllowed(ProviderAccess::provider(), $sectorId);
+            return app(VenueService::class)->prepareSector(ProviderAccess::provider(), $sectorId);
         } catch (BusinessException $e) {
             $this->fail($e->getMessage());
         }

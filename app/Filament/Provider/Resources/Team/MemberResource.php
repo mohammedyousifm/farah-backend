@@ -11,6 +11,7 @@ use App\Filament\Provider\Resources\Team\Pages\ManageMembers;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Act;
 use App\Filament\Support\Fmt;
+use App\Filament\Support\SaudiInput;
 use App\Models\ProviderMember;
 use App\Models\User;
 use App\Notifications\SystemNotification;
@@ -30,6 +31,7 @@ use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 /**
  * Provider team (same rules as the provider API TeamController). Members sign in to
@@ -88,11 +90,11 @@ class MemberResource extends Resource
         return [
             TextInput::make('name')->label(__('provider.fields.name'))->required()->maxLength(120),
             TextInput::make('email')->label(__('provider.fields.email'))->email()->required()->maxLength(120),
-            TextInput::make('phone')->label(__('provider.fields.phone'))->tel()->regex('/^(\+?966|0)?5\d{8}$/')->placeholder('05XXXXXXXX'),
+            SaudiInput::mobile()->label(__('provider.fields.phone')),
             ...static::accessComponents(),
             Radio::make('access')->label(__('provider.team.access'))->required()->live()->default('reset_link')->columnSpanFull()
                 ->options(['reset_link' => __('provider.team.access_reset_link'), 'password' => __('provider.team.access_password')]),
-            TextInput::make('password')->label(__('provider.team.temporary_password'))->password()->revealable()->minLength(8)
+            TextInput::make('password')->label(__('provider.team.temporary_password'))->password()->revealable()->rule(PasswordRule::default())->extraInputAttributes(['dir' => 'ltr'])
                 ->visible(fn (Get $get) => $get('access') === 'password')->required(fn (Get $get) => $get('access') === 'password')
                 ->helperText(__('provider.team.temporary_password_hint')),
         ];
@@ -104,8 +106,10 @@ class MemberResource extends Resource
         $provider = ProviderAccess::provider();
         $email = strtolower(trim($data['email']));
         $phone = filled($data['phone'] ?? null) ? OtpService::normalize($data['phone']) : null;
+        $permissions = $data['role'] === 'staff' ? array_values((array) ($data['permissions'] ?? [])) : null;
+        static::assertCanGrant($data['role'], $permissions ?? []);
 
-        [$member, $user, $created] = DB::transaction(function () use ($provider, $data, $email, $phone) {
+        [$member, $user, $created] = DB::transaction(function () use ($provider, $data, $email, $phone, $permissions) {
             $user = User::where('email', $email)->first() ?? ($phone ? User::where('phone', $phone)->first() : null);
             $created = false;
 
@@ -125,8 +129,10 @@ class MemberResource extends Resource
                 $created = true;
             }
 
-            // Only a brand-new (or password-less) account gets the temporary password.
-            if (($data['access'] ?? null) === 'password' && filled($data['password'] ?? null) && ($created || blank($user->password))) {
+            // Only a brand-new account gets the temporary password. An existing one (e.g. an app customer, who signs
+            // in by OTP and has no password) is never given a password chosen by someone else: that would hand over
+            // the account, and every store it belongs to. It gets a reset link to its own inbox instead.
+            if (($data['access'] ?? null) === 'password' && filled($data['password'] ?? null) && $created) {
                 $user->forceFill(['password' => $data['password']])->save();
             }
 
@@ -137,7 +143,7 @@ class MemberResource extends Resource
 
             $attributes = [
                 'role' => $data['role'],
-                'permissions' => $data['role'] === 'staff' ? array_values((array) ($data['permissions'] ?? [])) : null,
+                'permissions' => $permissions,
                 'is_active' => true,
             ];
             $member = $existing ? tap($existing)->update($attributes) : $provider->members()->create($attributes + ['user_id' => $user->id]);
@@ -145,7 +151,7 @@ class MemberResource extends Resource
             return [$member, $user, $created];
         });
 
-        if (($data['access'] ?? null) === 'reset_link' && $user->email) {
+        if ((($data['access'] ?? null) === 'reset_link' || (! $created && blank($user->password))) && $user->email) {
             static::sendResetLink($user);
         }
 
@@ -167,10 +173,28 @@ class MemberResource extends Resource
             });
     }
 
-    /** Owners and yourself cannot be edited (same as the API). */
+    /** Owners and yourself cannot be edited, and staff cannot touch managers (same as the API). */
     public static function editable(ProviderMember $member): bool
     {
-        return static::canManage() && $member->role !== 'owner' && $member->user_id !== auth()->id();
+        return static::canManage() && $member->role !== 'owner' && $member->user_id !== auth()->id()
+            && ($member->role !== 'manager' || in_array(ProviderAccess::member()?->role, ['owner', 'manager'], true));
+    }
+
+    /**
+     * Staff holding team.manage cannot hand out more than they have: no managers,
+     * no permissions they lack, and no changes to managers (TeamController::assertCanGrant).
+     */
+    public static function assertCanGrant(string $role, array $permissions, ?ProviderMember $target = null): void
+    {
+        $actor = ProviderAccess::member();
+
+        if ($actor && in_array($actor->role, ['owner', 'manager'], true)) {
+            return;
+        }
+
+        if (! $actor || $role !== 'staff' || $target?->role === 'manager' || array_diff($permissions, (array) ($actor->permissions ?? [])) !== []) {
+            throw new BusinessException(__('api.forbidden'), 'cannot_grant', 403);
+        }
     }
 
     public static function table(Table $table): Table
@@ -202,10 +226,11 @@ class MemberResource extends Resource
                     ->visible(fn (ProviderMember $r) => static::editable($r))
                     ->fillForm(fn (ProviderMember $r) => ['role' => $r->role, 'permissions' => $r->permissions ?? []])
                     ->schema(static::accessComponents())
-                    ->action(fn (ProviderMember $record, array $data) => Act::run(fn () => $record->update([
-                        'role' => $data['role'],
-                        'permissions' => $data['role'] === 'staff' ? array_values((array) ($data['permissions'] ?? [])) : null,
-                    ]), __('provider.saved'))),
+                    ->action(fn (ProviderMember $record, array $data) => Act::run(function () use ($record, $data) {
+                        $permissions = $data['role'] === 'staff' ? array_values((array) ($data['permissions'] ?? [])) : null;
+                        static::assertCanGrant($data['role'], $permissions ?? [], $record);
+                        $record->update(['role' => $data['role'], 'permissions' => $permissions]);
+                    }, __('provider.saved'))),
                 Action::make('send_reset')->label(__('provider.team.send_reset'))->icon('heroicon-o-envelope')->color('gray')
                     ->visible(fn (ProviderMember $r) => static::editable($r) && $r->is_active && filled($r->user?->email))
                     ->requiresConfirmation()

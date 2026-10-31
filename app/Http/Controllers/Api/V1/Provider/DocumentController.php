@@ -7,6 +7,7 @@ use App\Exceptions\BusinessException;
 use App\Http\Requests\Api\Provider\DocumentRequest;
 use App\Http\Resources\ProviderDocumentResource;
 use App\Models\ProviderDocument;
+use App\Services\ProviderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -52,6 +53,7 @@ class DocumentController extends ProviderController
                 'status' => DocumentStatus::Pending,
             ]);
         });
+        app(ProviderService::class)->documentUploaded($document);
 
         return response()->json(['message' => __('api.providers.document_uploaded'), 'data' => new ProviderDocumentResource($document)], 201);
     }

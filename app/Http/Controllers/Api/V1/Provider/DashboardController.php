@@ -80,6 +80,9 @@ class DashboardController extends ProviderController
                 'pending' => $provider->documents()->where('status', 'pending')->count(),
                 'rejected' => $provider->documents()->where('status', 'rejected')->count(),
                 'expired' => $provider->documents()->where('status', 'expired')->count(),
+                // Asked for by the platform while reviewing and not sent yet.
+                'requested' => $provider->documentRequests()->open()->get()
+                    ->map(fn ($r) => ['id' => $r->id, 'type' => $r->type->value, 'label' => $r->label(), 'note' => $r->note])->values(),
             ],
         ]]);
     }

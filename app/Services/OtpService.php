@@ -21,7 +21,11 @@ class OtpService
             return strtolower($identifier);
         }
 
-        $digits = preg_replace('/\D/', '', $identifier);
+        // Arabic keyboards type ٠١٢...: read them as 0-9 before dropping everything that is not a digit.
+        $digits = preg_replace('/\D/', '', strtr($identifier, array_combine(
+            [...mb_str_split('٠١٢٣٤٥٦٧٨٩'), ...mb_str_split('۰۱۲۳۴۵۶۷۸۹')],
+            [...range(0, 9), ...range(0, 9)],
+        )));
 
         return match (true) {
             str_starts_with($digits, '9665') => '+'.$digits,

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\DocumentStatus;
+use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
 use App\Enums\RequestStatus;
 use App\Enums\UserType;
@@ -10,6 +11,7 @@ use App\Enums\VenueStatus;
 use App\Exceptions\BusinessException;
 use App\Models\Provider;
 use App\Models\ProviderDocument;
+use App\Models\ProviderDocumentRequest;
 use App\Models\Sector;
 use App\Models\SectorRequest;
 use App\Models\Setting;
@@ -56,6 +58,10 @@ class ProviderService
         $missing = $provider->documents()->where('status', DocumentStatus::Pending)->count();
         if ($missing > 0) {
             throw new BusinessException(__('admin.providers.pending_documents', ['count' => $missing]), 'pending_documents');
+        }
+        $requested = $provider->documentRequests()->open()->count();
+        if ($requested > 0) {
+            throw new BusinessException(__('admin.providers.requested_documents', ['count' => $requested]), 'requested_documents');
         }
 
         // A second click (or a second admin at the same moment) must not decide or notify twice.
@@ -127,6 +133,28 @@ class ProviderService
         SystemNotification::send($provider->owner, 'provider_approved', ['name' => $provider->name_ar]);
     }
 
+    /** The platform asks the store for one document (e.g. the license an activity needs); the owner is told what. */
+    public function requestDocument(Provider $provider, DocumentType $type, ?string $note, User $by): ProviderDocumentRequest
+    {
+        $request = $provider->documentRequests()->create([
+            'type' => $type, 'note' => filled($note) ? trim($note) : null, 'requested_by' => $by->id,
+        ]);
+
+        SystemNotification::send($provider->owner, 'document_requested', ['type' => $request->label()]);
+
+        return $request;
+    }
+
+    /** A document came in: it answers the open requests for its type. */
+    public function documentUploaded(ProviderDocument $document): void
+    {
+        $document->provider->documentRequests()->open()->where('type', $document->type)
+            ->update(['document_id' => $document->id, 'fulfilled_at' => now()]);
+
+        AdminNotifier::send(['operations'], 'admin_document_uploaded',
+            ['name' => $document->provider->name_ar, 'type' => $document->type->getLabel()], ['provider_id' => $document->provider_id]);
+    }
+
     public function approveDocument(ProviderDocument $document, User $by): void
     {
         // A second click (or a second admin at the same moment) must not decide or notify twice.
@@ -146,6 +174,8 @@ class ProviderService
         }
 
         $document->update(['status' => DocumentStatus::Rejected, 'reviewed_by' => $by->id, 'reviewed_at' => now(), 'rejection_reason' => $reason]);
+        // A rejected answer does not count: the request it answered is open again.
+        ProviderDocumentRequest::where('document_id', $document->id)->update(['document_id' => null, 'fulfilled_at' => null]);
         SystemNotification::send($document->provider->owner, 'document_rejected', ['type' => $document->type->getLabel(), 'reason' => $reason]);
     }
 

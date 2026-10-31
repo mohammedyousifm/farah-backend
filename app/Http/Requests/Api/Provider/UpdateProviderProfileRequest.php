@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
 use App\Rules\GoogleMapsLink;
+use App\Rules\SaudiIban;
 
 /** Storefront + payout details. Legal identity (type, cr_number) is fixed after registration. */
 class UpdateProviderProfileRequest extends ApiRequest
@@ -25,7 +26,7 @@ class UpdateProviderProfileRequest extends ApiRequest
             'lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'vat_number' => ['sometimes', 'nullable', 'digits:15'],
             'bank_name' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'iban' => ['sometimes', 'nullable', 'regex:/^SA\d{22}$/'],
+            'iban' => ['sometimes', 'nullable', new SaudiIban],
             'account_holder' => ['sometimes', 'nullable', 'string', 'max:150'],
             'logo' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'cover' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:8192'],
@@ -35,7 +36,7 @@ class UpdateProviderProfileRequest extends ApiRequest
     protected function prepareForValidation(): void
     {
         if ($this->iban) {
-            $this->merge(['iban' => strtoupper(str_replace(' ', '', $this->iban))]);
+            $this->merge(['iban' => SaudiIban::clean((string) $this->iban)]);
         }
     }
 }

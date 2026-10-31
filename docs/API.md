@@ -469,7 +469,7 @@ All paths below are prefixed with `/provider` and need a token. The acting provi
 A **suspended** provider is read-only: every non-GET request answers `403 provider_suspended`.
 Staff holding `team.manage` can only add / edit `staff` members with permissions they hold themselves (`403 cannot_grant`); new members get a `team_invited` notification.
 **Roles:** `owner` and `manager` have every permission. `staff` only has the permissions granted:
-`venues.manage, orders.view, orders.manage, orders.offline, bookings.checkin, finance.view, team.manage, reviews.reply, profile.manage`.
+`venues.manage, orders.view, orders.offline, bookings.checkin, finance.view, team.manage, reviews.reply, profile.manage`.
 
 | Method | Path | Permission | Description |
 |---|---|---|---|

@@ -206,6 +206,12 @@ class Provider extends Model implements HasAvatar, HasName
         return $this->hasMany(ProviderDocument::class);
     }
 
+    /** Documents the platform asked this store for while reviewing it. */
+    public function documentRequests(): HasMany
+    {
+        return $this->hasMany(ProviderDocumentRequest::class);
+    }
+
     public function members(): HasMany
     {
         return $this->hasMany(ProviderMember::class);
