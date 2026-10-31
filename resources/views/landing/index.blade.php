@@ -183,7 +183,7 @@ section.block:nth-of-type(odd) { background: var(--bg-2); }
             </div>
             <div class="phone" id="app-tour" role="img" aria-label="{{ __('landing.app.screenshot_alt') }}">
                 @foreach ($tour as $frame)
-                    <img src="{{ asset('images/app-tour/'.$frame.'.webp') }}" alt="" width="540" height="1200" @class(['is-on' => $loop->first])>
+                    <img src="{{ asset('images/app-dark/'.$frame.'.webp') }}" alt="" width="540" height="1200" @class(['is-on' => $loop->first])>
                 @endforeach
             </div>
         </div>

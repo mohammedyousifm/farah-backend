@@ -114,10 +114,10 @@ class PublicSiteTest extends TestCase
                 ->getContent();
 
             // The hero is the real app: every screen of the tour exists.
-            preg_match_all('#images/app-tour/([a-z0-9-]+)\.webp#', $html, $frames);
+            preg_match_all('#images/app-dark/([a-z0-9-]+)\.webp#', $html, $frames);
             $this->assertCount(13, $frames[1]);
             foreach ($frames[1] as $frame) {
-                $this->assertFileExists(public_path('images/app-tour/'.$frame.'.webp'));
+                $this->assertFileExists(public_path('images/app-dark/'.$frame.'.webp'));
             }
 
             // Nothing is left of the old "sell tickets for your events" pitch.
