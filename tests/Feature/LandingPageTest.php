@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Sector;
 use Database\Seeders\ReferenceDataSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -21,7 +20,7 @@ class LandingPageTest extends TestCase
             ->assertSee(__('landing.join', [], 'ar'))
             ->assertSee('/provider/login', false)
             ->assertSee('/provider/register', false)
-            ->assertSee(Sector::where('is_active', true)->orderBy('sort_order')->value('name_ar'));
+            ->assertSee(__('landing.hero.title', [], 'ar'));
 
         $this->get('/?lang=en')
             ->assertOk()

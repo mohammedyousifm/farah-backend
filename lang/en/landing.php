@@ -7,18 +7,15 @@ return [
     'switch_lang' => 'العربية',
 
     'nav' => [
-        'how' => 'How it works',
-        'features' => 'Features',
-        'sectors' => 'Activities',
+        'about' => 'About',
         'plans' => 'Plans',
-        'app' => 'Customer app',
-        'faq' => 'FAQ',
     ],
     'sign_in' => 'Sign in',
     'join' => 'List your venue',
+
     'plans' => [
         'title' => 'Plans for store owners',
-        'subtitle' => 'Start free, and move up whenever you want more visibility and more activities.',
+        'subtitle' => 'Start free, and move up whenever you want more visibility.',
         'free' => 'Free',
         'currency' => 'SAR',
         'days' => ':days days',
@@ -29,99 +26,26 @@ return [
     ],
 
     'hero' => [
-        'badge' => 'For billiards halls, bowling centres, gaming lounges, karting tracks and courts',
-        'title_1' => 'List your venue on Farah',
-        'title_2' => 'and get booked by the hour',
-        'subtitle' => 'Farah is a Saudi platform for booking entertainment and game venues: add your venue, its activities and hourly prices, and customers book the table, lane or room at the time that suits them and pay in the app, while you follow bookings, earnings and payouts from one dashboard.',
-        'cta_join' => 'List your venue for free',
-        'cta_sign_in' => 'I have an account, sign in',
-        'point_1' => 'No subscription fees',
-        'point_2' => 'Regular payouts to your bank',
-        'point_3' => 'Fully bilingual',
-        'card_venue' => 'Al Olaya Hall · Billiards',
-        'card_price' => '60 SAR / hour',
-        'card_days' => ['Today', 'Tomorrow', 'Thu', 'Fri'],
-        'card_resource' => 'Table :n',
-        'legend_free' => 'Available',
-        'legend_booked' => 'Booked',
-        'legend_picked' => 'Customer’s pick',
-        'card_bookings' => 'bookings today',
-        'card_occupancy' => 'Occupancy',
-        'card_rating' => 'Customer rating',
-        'card_confirmed' => 'Booking confirmed',
-        'card_confirmed_detail' => 'Table 3 · 20:00 - 22:00',
+        'title' => 'Book your time at the best places to play',
+        'subtitle' => 'Billiards, bowling, gaming, karting and more. Pick a place and a time, pay in the app, and walk in with your booking code.',
+        'flow' => ['Meet Farah', 'Sign in with your mobile', 'Discover places and activities', 'Pick a table and a time', 'Pay securely', 'Walk in with your code'],
+        'stores' => 'Coming soon to the App Store and Google Play',
+        'tour_alt' => 'A tour of the Farah app: welcome, sign in, explore, choosing a time, payment and the booking code',
     ],
 
-    'how' => [
-        'title' => 'From sign-up to your first payout',
-        'subtitle' => 'Five simple steps between you and taking bookings on Farah.',
-        'steps' => [
-            ['title' => 'Register', 'body' => 'Create your business account and choose the activity types you offer.'],
-            ['title' => 'Verify documents', 'body' => 'Upload your CR or national ID and licences; our team reviews them quickly.'],
-            ['title' => 'Add your venue', 'body' => 'Set the location and working hours, add activities, the hourly price and how many tables, lanes or rooms you have, then submit for review.'],
-            ['title' => 'Take bookings', 'body' => 'Customers pick a table and a time and pay in the app, and you can record walk-in bookings from your dashboard too.'],
-            ['title' => 'Get paid', 'body' => 'Your earnings are transferred to your bank in clear, itemised settlements.'],
-        ],
+    'about' => [
+        'title' => 'About Farah',
+        'body' => 'Farah is a Saudi platform for booking entertainment and game venues by the hour. It brings customers and venue owners together: an app to book, and a dashboard to run the venue.',
+        'customers_title' => 'For customers',
+        'customers' => ['Places near you by city and game', 'Live availability for every table and lane', 'Secure payment and a booking code to walk in', 'Reviews, favourites and reminders'],
+        'owners_title' => 'For venue owners',
+        'owners' => ['Add your venue, activities and hourly price', 'A schedule per table that stops double booking', 'Confirm arrivals by scanning the booking code', 'Regular settlements and a clear statement'],
     ],
 
-    'features' => [
-        'title' => 'Everything you need to run your venue’s bookings',
-        'subtitle' => 'A complete web dashboard for you and your team.',
-        'items' => [
-            ['icon' => 'calendar-days', 'title' => 'Hourly booking per table', 'body' => 'Every table, lane or room has its own schedule, and a booked slot closes automatically, so nothing is booked twice.'],
-            ['icon' => 'clock', 'title' => 'Flexible hours and prices', 'body' => 'Set working hours per day, even past midnight, plus the hourly price, slot length and the shortest and longest booking.'],
-            ['icon' => 'qr-code', 'title' => 'Arrival check-in', 'body' => 'Scan or type the booking code when the customer arrives for instant validation and no double use.'],
-            ['icon' => 'user-group', 'title' => 'Team permissions', 'body' => 'Add managers and staff with precise access: bookings, check-in, finance and more.'],
-            ['icon' => 'banknotes', 'title' => 'Finance & payouts', 'body' => 'Available and pending balances, a detailed statement and regular settlements.'],
-            ['icon' => 'chart-bar', 'title' => 'Live dashboard', 'body' => 'Today’s bookings, this month’s sales, upcoming slots and customer reviews in one place.'],
-        ],
-    ],
-
-    'sectors' => [
-        'title' => 'Activities that fit your venue',
-        'subtitle' => 'Pick your activity type, or request a new one after you register.',
-        'categories' => '{0} No sub-categories|{1} 1 category|[2,*] :count categories',
-        'empty' => 'Activities will be announced soon.',
-    ],
-
-    'app' => [
-        'title' => 'For your customers: the Farah app',
-        'subtitle' => 'Customers discover venues near them, choose the game, the table and the time, pay securely and show their booking code on arrival.',
-        'point_1' => 'Browse venues by city and type of game',
-        'point_2' => 'Live availability per table and secure payment',
-        'point_3' => 'Reviews, favourites and alerts',
-        'soon' => 'Coming soon',
-        'app_store' => 'App Store',
-        'google_play' => 'Google Play',
-        'download_on' => 'Download on the',
-        'get_it_on' => 'Get it on',
-        'screenshot_alt' => 'A tour of the Farah app: welcome, sign in, booking and the arrival code',
-    ],
-
-    'stats' => [
-        'label' => 'Farah in numbers',
-        'providers' => 'approved providers',
-        'venues' => 'bookable venues',
-        'sectors' => 'activity types',
-        'cities' => 'cities',
-    ],
-
-    'faq' => [
-        'title' => 'Frequently asked questions',
-        'items' => [
-            ['q' => 'Is joining Farah free?', 'a' => 'Yes. Registration is free and there is no subscription; a commission applies to paid bookings only.'],
-            ['q' => 'Who can join as a provider?', 'a' => 'Registered businesses that run entertainment or game venues booked by the hour: billiards halls, bowling centres, gaming lounges, karting tracks, courts and the other activities available on the platform.'],
-            ['q' => 'How does a customer book?', 'a' => 'They choose the activity, then the table, lane or room and a free time, and pay in the app. The slot is held for them alone, and they show the booking code on arrival.'],
-            ['q' => 'Which documents are required?', 'a' => 'A commercial registration, an IBAN letter, a Google Maps link to your place, and any activity licence that applies.'],
-            ['q' => 'Can I record a walk-in customer?', 'a' => 'Yes. Record the walk-in booking from your dashboard and the slot closes in the app at once, so it is never booked twice.'],
-            ['q' => 'When do I get paid?', 'a' => 'Funds become available after the booked time is over plus a short hold period, then are transferred to your bank in the settlement cycle.'],
-            ['q' => 'Can my team use the account?', 'a' => 'Yes. Add team members with different roles and permissions; each one signs in with their own login.'],
-        ],
-    ],
-
-    'cta' => [
-        'title' => 'Ready to take bookings for your venue?',
-        'subtitle' => 'Join the venue owners on Farah and start today.',
+    'contact' => [
+        'title' => 'Contact us',
+        'body' => 'Have a question, or want to list your venue? Our team can help.',
+        'cta' => 'Message us',
     ],
 
     'footer' => [
