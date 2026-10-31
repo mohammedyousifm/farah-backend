@@ -95,9 +95,8 @@ return [
         'google_play' => 'Google Play',
         'download_on' => 'Download on the',
         'get_it_on' => 'Get it on',
+        'screenshot_alt' => 'The home screen of the Farah app',
     ],
-
-    'phone_cards' => ['Billiards · Table 3', 'Bowling · Lane 2', 'PlayStation · Room 4'],
 
     'stats' => [
         'label' => 'Farah in numbers',

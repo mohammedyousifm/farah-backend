@@ -164,13 +164,8 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
 .store small { display: block; font-size: .7rem; color: var(--muted); line-height: 1.1; }
 .store b { display: block; font-size: 1.05rem; line-height: 1.2; }
 .store .soon { position: absolute; top: -.7rem; inset-inline-end: -.4rem; font-size: .72rem; font-weight: 700; padding: .1rem .55rem; border-radius: 999px; background: var(--orange); color: #111; }
-.phone { justify-self: center; width: min(15rem, 100%); aspect-ratio: 9 / 18.5; border-radius: 2.4rem; border: 8px solid #1d1d25; background: #0f0f15; padding: 1rem .8rem; box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); display: flex; flex-direction: column; gap: .6rem; }
-.phone-card { border-radius: 1rem; height: 6.2rem; flex-shrink: 0; background: linear-gradient(135deg, var(--orange), var(--magenta)); position: relative; overflow: hidden; }
-.phone-card:nth-child(3) { background: linear-gradient(135deg, var(--purple), var(--blue)); }
-.phone-card:nth-child(4) { background: linear-gradient(135deg, var(--magenta), var(--purple)); }
-.phone-card span { position: absolute; bottom: .6rem; inset-inline-start: .7rem; font-size: .75rem; font-weight: 700; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
-.phone-bar { height: .55rem; border-radius: 999px; background: rgba(255,255,255,.08); flex-shrink: 0; }
-.phone-bar.short { width: 60%; }
+.phone { justify-self: center; width: min(17rem, 100%); aspect-ratio: 9 / 20; border-radius: 2.4rem; border: 8px solid #1d1d25; background: #0f0f15; box-shadow: 0 30px 60px -20px rgba(0,0,0,.8); overflow: hidden; }
+.phone img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 .faq { max-width: 50rem; margin: 0 auto; display: grid; gap: .75rem; }
 .faq details { border: 1px solid var(--line); border-radius: 1rem; background: var(--card); transition: border-color .2s; }
@@ -423,13 +418,8 @@ section.block { padding: 5rem 0; border-top: 1px solid var(--line); }
                         </div>
                     </div>
                 </div>
-                <div class="phone" aria-hidden="true">
-                    <div class="phone-bar short"></div>
-                    @foreach (__('landing.phone_cards') as $label)
-                        <div class="phone-card"><span>{{ $label }}</span></div>
-                    @endforeach
-                    <div class="phone-bar"></div>
-                    <div class="phone-bar short"></div>
+                <div class="phone">
+                    <img src="{{ asset('images/app-home.webp') }}" alt="{{ __('landing.app.screenshot_alt') }}" width="640" height="1422" loading="lazy">
                 </div>
             </div>
         </div>

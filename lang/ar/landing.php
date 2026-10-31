@@ -95,9 +95,8 @@ return [
         'google_play' => 'Google Play',
         'download_on' => 'حمّله من',
         'get_it_on' => 'احصل عليه من',
+        'screenshot_alt' => 'الشاشة الرئيسية في تطبيق فرة',
     ],
-
-    'phone_cards' => ['بلياردو · طاولة 3', 'بولينج · مسار 2', 'بلايستيشن · غرفة 4'],
 
     'stats' => [
         'label' => 'فرة بالأرقام',
