@@ -679,9 +679,9 @@ class DemoSeeder extends Seeder
             $refunds->approve($refunds->request($group, $group->user, [['booking_id' => $group->bookings->last()->id]], 'أحد الأصدقاء اعتذر'), $this->admin);
         }
 
-        // Cancelled by the customer before paying, and one checkout still waiting for payment.
+        // Never paid and expired, and one checkout still waiting for payment.
         if ($o = $this->book($this->customers[8], $activity, 2, 3, 1, pay: false)) {
-            app(OrderService::class)->cancelUnpaid($o, 'customer_cancelled');
+            app(OrderService::class)->expire($o);
         }
         $this->book($this->customers[9], $activity, 3, 4, 2, pay: false);
     }
