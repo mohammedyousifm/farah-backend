@@ -95,6 +95,12 @@ class ProviderDocument extends Model
         return $this->file_path ? Storage::disk(self::DISK)->temporaryUrl($this->file_path, now()->addMinutes(15)) : null;
     }
 
+    /** For the dashboards: a fixed address that checks the signed-in admin / provider member on every open. */
+    public function panelUrl(): ?string
+    {
+        return $this->file_path ? route('files.document', $this) : null;
+    }
+
     public function isExpiringSoon(int $days = 30): bool
     {
         return $this->expires_at && $this->expires_at->isFuture() && now()->diffInDays($this->expires_at) <= $days;

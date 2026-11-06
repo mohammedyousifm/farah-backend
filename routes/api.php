@@ -120,6 +120,8 @@ Route::prefix('v1')->name('api.v1.')->middleware('throttle:api')->group(function
             Route::middleware(['provider:profile.manage', 'throttle:actions'])->group(function () {
                 Route::post('subscription', [Provider\PlanController::class, 'requestPlan'])->name('subscription.request');
                 Route::delete('subscription/pending', [Provider\PlanController::class, 'cancelRequest'])->name('subscription.cancel-request');
+                // Online payment of the waiting plan (approved providers): returns the gateway's checkout_url.
+                Route::post('subscription/pending/pay', [Provider\PlanController::class, 'pay'])->name('subscription.pay');
             });
 
             // Venues: working hours, gallery, activities and their resources

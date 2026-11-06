@@ -124,4 +124,10 @@ class Settlement extends Model
     {
         return $this->receipt_path ? Storage::disk(self::RECEIPT_DISK)->temporaryUrl($this->receipt_path, now()->addMinutes(15)) : null;
     }
+
+    /** For the dashboards: a fixed address that checks the signed-in admin / provider member on every open. */
+    public function panelReceiptUrl(): ?string
+    {
+        return $this->receipt_path ? route('files.receipt', $this) : null;
+    }
 }

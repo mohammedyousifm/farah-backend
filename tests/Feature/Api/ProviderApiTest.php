@@ -254,7 +254,7 @@ class ProviderApiTest extends ApiTestCase
         $this->getJson('/api/v1/provider/orders')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson("/api/v1/provider/orders/{$order->id}")->assertNotFound();
         $this->getJson("/api/v1/provider/venues/{$theirVenue->id}")->assertNotFound();
-        $this->putJson("/api/v1/provider/venues/{$theirVenue->id}", ['name_ar' => 'x'])->assertNotFound();
+        $this->putJson("/api/v1/provider/venues/{$theirVenue->id}", ['name_ar' => 'س'])->assertNotFound();
         $this->postJson('/api/v1/provider/orders/offline', $this->line($theirVenue, 1, $this->slot(4)) + ['payment_method' => 'cash', 'customer' => ['name' => 'x']])
             ->assertForbidden()->assertJsonPath('code', 'forbidden');
         $this->postJson('/api/v1/provider/bookings/check-in', ['code' => $order->bookings()->value('code')])
@@ -391,6 +391,7 @@ class ProviderApiTest extends ApiTestCase
         // One app booking (pending, held) on table A at 20:00-22:00.
         $customer = $this->customer('+966501112233', ['name' => 'Saad']);
         $order = app(OrderService::class)->createOnline($customer, [$this->line($venue, 2, null, $tableA->id)]);
+        $order->update(['expires_at' => now()->addDays(5)]); // the test travels in time; keep the hold alive (expired holds are released on read)
 
         Sanctum::actingAs($provider->owner);
 

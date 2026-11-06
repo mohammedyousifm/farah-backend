@@ -58,6 +58,10 @@ class AvailabilityService
      */
     public function forDate(Activity $activity, CarbonInterface|string $date): array
     {
+        // Unpaid holds past their payment window are released first, so they never show as booked
+        // (resolved lazily: OrderService depends on this class).
+        app(OrderService::class)->expireStale();
+
         $venue = $activity->venue;
         $window = $this->window($venue, $date);
         $day = CarbonImmutable::parse(is_string($date) ? $date : $date->format('Y-m-d'), self::timezone())->startOfDay();

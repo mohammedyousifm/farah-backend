@@ -330,17 +330,19 @@ class OrderPaymentServiceTest extends ServiceTestCase
         $paid = $this->paidOrder($venue, 3);
 
         $this->travel(20)->minutes();
-        [$fresh] = $this->checkout($this->customer('+966509998877'), $venue, 1);
+        $this->assertSame(OrderStatus::PendingPayment, $stale->fresh()->status); // nothing has swept yet
+        [$fresh] = $this->checkout($this->customer('+966509998877'), $venue, 1); // taking a new hold sweeps stale ones first
 
-        $this->assertSame(1, app(OrderService::class)->expireStale());
+        $this->assertSame(0, app(OrderService::class)->expireStale()); // already released, nothing left for the job
         $this->assertSame(OrderStatus::Expired, $stale->fresh()->status);
         $this->assertSame(OrderStatus::Confirmed, $paid->fresh()->status);
         $this->assertSame(OrderStatus::PendingPayment, $fresh->fresh()->status);
         $this->assertSame(4, BookingSlot::count());
 
-        // The released table can be booked again right away.
-        $again = app(OrderService::class)->createOnline($this->customer('+966507776655'),
-            [$this->line($venue, 2, null, $stale->bookings()->first()->resource_id)]);
+        // The released table went to the next customer at once ($fresh took the freed table);
+        // the slot is still bookable on whatever table is left.
+        $this->assertSame($stale->bookings()->first()->resource_id, $fresh->bookings()->first()->resource_id);
+        $again = app(OrderService::class)->createOnline($this->customer('+966507776655'), [$this->line($venue, 2)]);
         $this->assertSame(OrderStatus::PendingPayment, $again->status);
     }
 

@@ -3,6 +3,7 @@
 use App\Exceptions\BusinessException;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\PreventDuplicateRequests;
+use App\Http\Middleware\ReleaseExpiredHolds;
 use App\Http\Middleware\RequestId;
 use App\Http\Middleware\ResolveProvider;
 use App\Http\Middleware\SecurityHeaders;
@@ -24,9 +25,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Hosting puts a proxy in front of PHP that ends HTTPS. Without trusting its X-Forwarded-* headers every
+        // request looks like plain http, so links signed for https (documents, invoices, payment pages) failed
+        // their signature with 403. TRUSTED_PROXIES narrows it to given addresses; '*' = the host's own proxy.
+        $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*'));
+
         // --- API (owned by the API workstream) ---
         $middleware->append([RequestId::class, SecurityHeaders::class]);
-        $middleware->api(prepend: [SetApiLocale::class], append: [PreventDuplicateRequests::class]);
+        $middleware->api(prepend: [SetApiLocale::class], append: [ReleaseExpiredHolds::class, PreventDuplicateRequests::class]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
             'provider' => ResolveProvider::class,

@@ -46,6 +46,7 @@ return [
     ],
     'payments' => [
         'order_not_payable' => 'This order cannot be paid.',
+        'order_expired' => 'The payment time for this booking ran out and the slot was released. Please book again.',
         'already_paid' => 'This order was already paid; the extra payment is refunded.',
         'amount_mismatch' => 'The paid amount does not match the order. Support will review it.',
     ],
@@ -151,6 +152,8 @@ return [
         'free_is_automatic' => 'You are on the free plan automatically; there is nothing to request.',
         'approve_provider_first' => 'Approve the provider first, then activate its plan.',
         'already_pending' => 'You already have a plan request waiting. Cancel it first to choose another one.',
+        'pay_after_approval' => 'The plan is paid once the Farah team has approved your account.',
+        'not_payable' => 'This request does not need a payment now (it is no longer waiting for one).',
         'requested' => 'Request sent. The plan starts once the platform activates it.',
         'request_cancelled' => 'Request cancelled.',
     ],

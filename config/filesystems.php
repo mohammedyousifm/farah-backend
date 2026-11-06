@@ -34,6 +34,7 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/private'),
             'serve' => true,
+            // Signed links of this disk are built in AppServiceProvider (files.private), see there why.
             'throw' => false,
             'report' => false,
         ],

@@ -4,6 +4,36 @@ Notable changes to the Farah back end and dashboards. Newest first.
 
 ## Unreleased
 
+### QA report of 6 Nov 2026 (answer: `docs/Farah_QA_Response_2026-11-06.html` in the project folder)
+- BUG-ADM-001: the proxy's `X-Forwarded-*` headers are trusted (signed https links failed with 403 behind
+  the host's proxy); dashboards open documents and receipts through `/files/...`, checked per request.
+- FARAH-DATA-001: `ArabicText` rule on Arabic provider and store names (web and API).
+- FARAH-WF-003: approval needs an approved commercial register, plus a licence for activity types that
+  require one; the onboarding checklist shows them.
+- BUG-ADM-004: sign-up is a 3-step wizard, bank details left sign-up, providers confirm their e-mail.
+- BUG-ADM-005: approved providers pay a waiting plan online (`SubscriptionService::checkout`, web "Pay now",
+  `POST /provider/subscription/pending/pay`); only the signed webhook activates it. Renewal starts when the
+  running period ends; `farah:plan-reminders` warns 3 days before the end.
+- The scheduler drains the mail queue every minute (`QUEUE_FROM_SCHEDULER`); mail goes through Resend SMTP.
+- Signed private-file links carry the path in the query (`/private-file?path=…`): the host drops the query
+  string of URLs ending in a file extension, which was the real cause of BUG-ADM-001.
+
+### Speed (measured on the test server, 6 Nov 2026)
+- Landing: only the first app-tour screen loads with the page; the rest follow after `load` (4.1 s → 1.7 s).
+- Almarai and IBM Plex Sans Arabic are self-hosted (`public/fonts`); no request leaves the site any more.
+- Dashboard avatar is a local initials SVG (`InitialsAvatar`), not ui-avatars.com (which also got the name).
+- The notifications bell renders with the page (`databaseNotifications(isLazy: false)`): one request less.
+- Test server uses `QUEUE_CONNECTION=deferred`: e-mails go out right after the response, no cron needed.
+
+### Security
+- Public pages send a full Content-Security-Policy with a per-request script nonce; dashboards get a
+  policy Filament can run under. The QR reader is served from `public/assets` instead of a CDN.
+- Updated `livewire/livewire` and `symfony/mime` for published advisories.
+- Dashboard sales figures need the reports permission or `orders.manage`.
+
+### Changed
+- `ReportService` split into traits under `app/Services/Reports`, with the same public methods.
+
 ### Added
 - Provider plans (packages), checked by the server. Admin → Finance → "Plans" (name, price, length,
   features; one plan can be the free plan) and "Plan subscriptions" (activate a request once paid and the

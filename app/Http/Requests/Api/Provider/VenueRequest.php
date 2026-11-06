@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
+use App\Rules\ArabicText;
 
 /**
  * Create (POST) or update (PUT/PATCH, or multipart POST to /venues/{id}) a venue.
@@ -17,7 +18,7 @@ class VenueRequest extends ApiRequest
 
         return [
             'city_id' => [$req, 'integer', 'exists:cities,id'],
-            'name_ar' => [$req, 'string', 'max:200'],
+            'name_ar' => [$req, 'string', 'max:200', new ArabicText],
             'name_en' => ['nullable', 'string', 'max:200'],
             'summary_ar' => ['nullable', 'string', 'max:500'],
             'summary_en' => ['nullable', 'string', 'max:500'],

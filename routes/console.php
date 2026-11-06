@@ -5,6 +5,7 @@ use App\Services\CampaignService;
 use App\Services\OrderService;
 use App\Services\ProviderService;
 use App\Services\SettlementService;
+use App\Services\SubscriptionService;
 use App\Support\SchedulerHeartbeat;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
@@ -26,6 +27,10 @@ Artisan::command('farah:complete-bookings', function (OrderService $orders) {
     $asked = $orders->promptReviews();
     $this->info("Completed {$o} orders, asked {$asked} customers to rate their visit.");
 })->purpose('Mark bookings whose time passed, and their orders, as completed');
+
+Artisan::command('farah:plan-reminders', function (SubscriptionService $subscriptions) {
+    $this->info('Told '.$subscriptions->remindExpiring().' owners their plan ends soon.');
+})->purpose('Tell providers 3 days before a paid plan ends');
 
 Artisan::command('farah:document-expiry', function (ProviderService $providers) {
     [$warned, $expired] = $providers->checkDocumentExpiry();
@@ -65,6 +70,12 @@ Artisan::command('farah:send-campaigns', function (CampaignService $campaigns) {
 Schedule::command('farah:expire-orders')->everyMinute()->withoutOverlapping();
 Schedule::command('farah:send-campaigns')->everyMinute()->withoutOverlapping();
 Schedule::command('farah:complete-bookings')->everyFiveMinutes()->withoutOverlapping();
+// Queued mail and notifications (password reset links, provider e-mails). Shared hosting has no long-running
+// worker, so the one cron line drains the queue every minute; a server with its own worker can set
+// QUEUE_FROM_SCHEDULER=false.
+if (config('farah.queue_from_scheduler')) {
+    Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')->everyMinute()->withoutOverlapping()->name('farah:queue');
+}
 // Proof the scheduler is alive: "farah:doctor" and the admin dashboard warn when this goes stale.
 Schedule::call(fn () => Cache::put(SchedulerHeartbeat::KEY, now()->timestamp, now()->addDay()))->everyMinute()->name('farah:heartbeat');
 
@@ -77,3 +88,4 @@ $saudi = config('farah.timezone');
 Schedule::command('farah:prune')->dailyAt('03:30')->timezone($saudi)->withoutOverlapping();
 Schedule::command('farah:generate-settlements')->dailyAt('05:00')->timezone($saudi)->withoutOverlapping(); // = 02:00 UTC, as before
 Schedule::command('farah:document-expiry')->dailyAt('08:00')->timezone($saudi)->withoutOverlapping();
+Schedule::command('farah:plan-reminders')->dailyAt('09:00')->timezone($saudi)->withoutOverlapping();

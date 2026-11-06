@@ -22,6 +22,7 @@ use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Venue;
 use App\Models\VenueHour;
+use App\Rules\ArabicText;
 use App\Rules\GoogleMapsLink;
 use App\Services\VenueService;
 use App\Support\Geo;
@@ -227,7 +228,7 @@ class VenueResource extends Resource
                 'schema' => [
                     // Starts as the business name typed at sign-up (one store per business); it can be changed
                     // when the store trades under another name.
-                    TextInput::make('name_ar')->label(__('provider.fields.store_name_ar'))->required()->maxLength(200)
+                    TextInput::make('name_ar')->label(__('provider.fields.store_name_ar'))->required()->maxLength(200)->rule(new ArabicText)
                         ->default($provider?->name_ar)->helperText(__('provider.venues.name_hint')),
                     TextInput::make('name_en')->label(__('provider.fields.store_name_en'))->maxLength(200)
                         ->default($provider?->name_en),

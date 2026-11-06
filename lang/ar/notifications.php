@@ -38,6 +38,8 @@ return [
     'admin_complaint_new' => ['title' => 'بلاغ جديد', 'body' => 'بلاغ :number: :subject'],
     'campaign' => ['title' => ':title', 'body' => ':body'],
     'subscription_requested' => ['title' => 'طلب باقة جديد', 'body' => 'طلب :provider باقة :plan. فعّلها بعد استلام المبلغ.'],
+    'subscription_payment_unmatched' => ['title' => 'دفعة باقة تحتاج استرداداً', 'body' => 'وصلت دفعة :amount ر.س (:reference) لطلب باقة لم يعد بانتظار الدفع. راجعها واستردّ المبلغ.'],
+    'subscription_expiring' => ['title' => 'باقتك تنتهي قريباً', 'body' => 'باقة :plan تنتهي في :date. جدّدها من «باقتي» حتى لا تتوقف مزاياها.'],
     'subscription_activated' => ['title' => 'تم تفعيل باقتك', 'body' => 'باقة :plan سارية الآن حتى :date.'],
     'subscription_rejected' => ['title' => 'لم يتم تفعيل الباقة', 'body' => 'طلب باقة :plan. السبب: :reason'],
     'subscription_cancelled' => ['title' => 'تم إيقاف باقتك', 'body' => 'أُوقفت باقة :plan. السبب: :reason'],

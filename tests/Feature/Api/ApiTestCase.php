@@ -51,6 +51,7 @@ abstract class ApiTestCase extends TestCase
             'type' => UserType::Customer,
             'status' => UserStatus::Active,
             'locale' => 'ar',
+            'email_verified_at' => now(),
         ]);
     }
 
@@ -63,7 +64,7 @@ abstract class ApiTestCase extends TestCase
         $provider = Provider::create([
             'owner_id' => $owner->id,
             'type' => 'establishment',
-            'name_ar' => $name.' AR',
+            'name_ar' => 'متجر '.$name,
             'name_en' => $name,
             'slug' => Str::slug($name).'-'.Str::lower(Str::random(5)),
             'city_id' => $this->city->id,

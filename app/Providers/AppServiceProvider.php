@@ -52,6 +52,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -84,6 +85,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+
+        // Signed links to private files (documents, receipts, upload previews) carry the file path in the query:
+        // /private-file?path=…&signature=…. The host drops the query string of any URL ending in a file
+        // extension (.jpg, .pdf), so Laravel's default /storage/…/x.jpg?signature=… arrived unsigned → 403.
+        Storage::disk('local')->buildTemporaryUrlsUsing(
+            fn (string $path, \DateTimeInterface $expiration) => URL::temporarySignedRoute('files.private', $expiration, ['path' => $path])
+        );
 
         Relation::enforceMorphMap([
             'user' => User::class,

@@ -64,10 +64,12 @@ class WalletService
     /** Pay a pending order from the wallet. The balance must cover the whole order. */
     public function pay(User $user, Order $order, PaymentService $payments): Payment
     {
+        app(OrderService::class)->assertPayable($order, $user); // releases and refuses an order whose payment window ended
+
         $payment = DB::transaction(function () use ($user, $order) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
 
-            if ($order->user_id !== $user->id || $order->status !== OrderStatus::PendingPayment) {
+            if ($order->user_id !== $user->id || $order->status !== OrderStatus::PendingPayment || $order->holdExpired()) {
                 throw new BusinessException(__('api.payments.order_not_payable'), 'order_not_payable');
             }
 

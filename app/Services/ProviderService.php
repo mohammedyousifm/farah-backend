@@ -63,6 +63,7 @@ class ProviderService
         if ($requested > 0) {
             throw new BusinessException(__('admin.providers.requested_documents', ['count' => $requested]), 'requested_documents');
         }
+        $this->assertRequiredDocuments($provider, $sectorIds ?: $provider->sectors()->pluck('sectors.id')->all());
 
         // A second click (or a second admin at the same moment) must not decide or notify twice.
         if (! Once::first($provider, 'status', ProviderStatus::Approved)) {
@@ -88,6 +89,32 @@ class ProviderService
         // One request, one decision: a store the provider already sent for review goes live with the approval.
         foreach ($provider->venues()->where('status', VenueStatus::PendingReview)->get() as $venue) {
             app(VenueService::class)->approve($venue, $by);
+        }
+    }
+
+    /**
+     * What a store needs before it can go live: an approved commercial register, and an approved licence for
+     * every activity type that requires one (a licence for that type, or a general one without a type).
+     * Checked on the server at approval; signing up stays open so documents can follow inside the dashboard.
+     *
+     * @param  array<int, int>  $sectorIds
+     */
+    public function assertRequiredDocuments(Provider $provider, array $sectorIds): void
+    {
+        $approved = fn () => $provider->documents()->where('status', DocumentStatus::Approved);
+
+        if (! $approved()->where('type', DocumentType::CommercialRegister)->exists()) {
+            throw new BusinessException(__('admin.providers.missing_commercial_register'), 'missing_commercial_register');
+        }
+
+        $unlicensed = Sector::whereIn('id', $sectorIds)->where('requires_license', true)->get()
+            ->reject(fn (Sector $sector) => $approved()->where('type', DocumentType::License)
+                ->where(fn ($q) => $q->where('sector_id', $sector->id)->orWhereNull('sector_id'))->exists());
+
+        if ($unlicensed->isNotEmpty()) {
+            throw new BusinessException(__('admin.providers.missing_license', [
+                'sectors' => $unlicensed->map(fn (Sector $s) => $s->tr('name'))->join('، '),
+            ]), 'missing_license');
         }
     }
 

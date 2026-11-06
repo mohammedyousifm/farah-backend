@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Exceptions\BusinessException;
 use App\Models\Order;
@@ -29,9 +28,7 @@ class PaymentService
     public function checkout(User $user, Collection $orders): Payment
     {
         foreach ($orders as $order) {
-            if ($order->user_id !== $user->id || $order->status !== OrderStatus::PendingPayment) {
-                throw new BusinessException(__('api.payments.order_not_payable'), 'order_not_payable');
-            }
+            $this->orders->assertPayable($order, $user);
         }
 
         $payment = Payment::create([
@@ -142,6 +139,13 @@ class PaymentService
         }
 
         $payment->refresh();
+
+        // A provider paying for a plan: no orders, the plan starts.
+        if (isset($payment->payload['subscription_id'])) {
+            app(SubscriptionService::class)->activateFromPayment($payment);
+
+            return;
+        }
 
         // Orders created for this payment, plus any currently linked to it.
         $ids = collect($payment->payload['order_ids'] ?? [])

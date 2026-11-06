@@ -6,7 +6,7 @@
     >
         <x-filament::section>
             <form wire:submit="checkIn" class="farah-checkin-form">
-                {{-- Camera scanner (html5-qrcode, loaded on demand from cdnjs). Typing / USB scanners keep working. --}}
+                {{-- Camera scanner (html5-qrcode, loaded on demand from our own server). Typing / USB scanners keep working. --}}
                 <div class="farah-checkin-camera" wire:ignore>
                     <button type="button" class="farah-checkin-camera-btn" x-show="! on" x-on:click="start()" x-bind:disabled="loading">
                         <x-filament::icon icon="heroicon-o-camera" class="farah-checkin-camera-icon" />
@@ -139,7 +139,7 @@
                     if (window.Html5Qrcode) return Promise.resolve();
                     return new Promise((resolve, reject) => {
                         const s = document.createElement('script');
-                        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js';
+                        s.src = @js(asset('assets/html5-qrcode.min.js'));
                         // Pinned file: the browser refuses it if the CDN copy ever changes.
                         s.integrity = 'sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg==';
                         s.crossOrigin = 'anonymous';

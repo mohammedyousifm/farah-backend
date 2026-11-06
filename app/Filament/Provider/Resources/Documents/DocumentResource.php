@@ -142,7 +142,7 @@ class DocumentResource extends Resource
             ])
             ->recordActions([
                 Action::make('open')->label(__('provider.actions.open_file'))->icon('heroicon-o-arrow-top-right-on-square')->color('gray')
-                    ->url(fn (ProviderDocument $r) => $r->fileUrl(), true),
+                    ->url(fn (ProviderDocument $r) => $r->panelUrl(), true),
                 Action::make('replace')->label(__('provider.actions.reupload'))->icon('heroicon-o-arrow-up-tray')->color('warning')
                     ->visible(fn (ProviderDocument $r) => static::canManage()
                         && ($r->status !== DocumentStatus::Approved || ($r->expires_at && $r->isExpiringSoon())))

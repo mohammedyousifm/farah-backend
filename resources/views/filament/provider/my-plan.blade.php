@@ -56,9 +56,12 @@
             <div class="farah-plan-current">
                 <p>
                     {{ __('provider.plans.pending_body', ['plan' => $pending->plan->tr('name'), 'price' => \App\Filament\Support\Fmt::sar($pending->price)]) }}
-                    @if ($onboarding) {{ __('provider.plans.pending_after_approval') }} @endif
+                    @if ($onboarding) {{ __('provider.plans.pending_after_approval') }} @else {{ __('provider.plans.pending_pay_hint') }} @endif
                 </p>
-                {{ $this->cancelRequestAction }}
+                <div class="farah-plan-actions">
+                    @if ($approved && $canRequest) {{ $this->payAction }} @endif
+                    {{ $this->cancelRequestAction }}
+                </div>
             </div>
         </x-filament::section>
     @endif
@@ -97,7 +100,11 @@
                             @endforeach
                         </ul>
                         <div class="farah-plan-cta">
-                            @if ($plan->id === $currentPlanId)
+                            @if ($plan->id === $currentPlanId && $current && ! $plan->is_free && $canRequest && ! $pending && $current->daysLeft() <= 14)
+                                {{-- Renewing adds the new period after the running one ends. --}}
+                                <x-filament::badge color="success">{{ __('provider.plans.your_plan') }}</x-filament::badge>
+                                {{ ($this->requestAction)(['plan' => $plan->id, 'renew' => true]) }}
+                            @elseif ($plan->id === $currentPlanId)
                                 <x-filament::badge color="success">{{ __('provider.plans.your_plan') }}</x-filament::badge>
                             @elseif ($plan->is_free)
                                 <span class="farah-plan-muted">{{ __('provider.plans.free_returns') }}</span>
@@ -159,7 +166,8 @@
         .farah-plan-card.is-current { border-color: var(--primary-600); box-shadow: 0 0 0 1px var(--primary-600); }
         .farah-plan-price { font-size: 1.35rem; font-weight: 700; color: var(--primary-600); margin-top: .35rem; }
         .farah-plan-price small { font-size: .8rem; font-weight: 400; opacity: .7; color: inherit; }
-        .farah-plan-cta { margin-top: auto; padding-top: .75rem; }
+        .farah-plan-cta { margin-top: auto; padding-top: .75rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+        .farah-plan-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
         .farah-plan-table { width: 100%; font-size: .875rem; }
         .farah-plan-table th { text-align: start; font-weight: 600; opacity: .7; padding: .4rem .5rem; }
         .farah-plan-table td { padding: .5rem; border-top: 1px solid rgba(127,127,127,.15); }

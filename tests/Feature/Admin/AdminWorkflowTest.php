@@ -340,6 +340,17 @@ class AdminWorkflowTest extends AdminTestCase
         $this->get('/admin')->assertOk();
     }
 
+    public function test_sales_figures_stay_with_the_roles_that_need_them(): void
+    {
+        $this->actingAs($this->superAdmin('content'));
+        $this->assertFalse(KpiStatsWidget::canView());
+        $this->assertFalse(SalesChart::canView());
+        $this->assertFalse(OrdersBySectorChart::canView());
+
+        $this->actingAs($this->superAdmin('finance'));
+        $this->assertTrue(KpiStatsWidget::canView());
+    }
+
     public function test_dashboard_widgets_follow_the_date_range(): void
     {
         $this->get(Dashboard::getUrl())->assertOk();

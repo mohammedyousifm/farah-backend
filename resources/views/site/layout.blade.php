@@ -72,9 +72,7 @@
     <meta name="theme-color" content="#0B0B10">
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/apple-touch-icon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet">
+    <link href="{{ asset('fonts/ibm-plex-sans-arabic/ibm-plex-sans-arabic.css') }}" rel="stylesheet">
     <script type="application/ld+json">{!! json_encode($organization, $jsonFlags) !!}</script>
     @stack('head')
     <style>
@@ -175,7 +173,7 @@
         </div>
     </footer>
 
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         (function () {
             var btn = document.getElementById('menu-btn'), menu = document.getElementById('mnav');
             if (!btn || !menu) return;

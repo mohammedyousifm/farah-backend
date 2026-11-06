@@ -207,7 +207,7 @@ class SecurityTest extends ApiTestCase
         // Real temp files: MIME types are sniffed from the content, as in production.
         $svg = $this->realUpload('logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
         $html = $this->realUpload('doc.html', '<html><script>alert(1)</script></html>');
-        $php = $this->realUpload('shell.php.jpg', '<?php system($_GET["c"]); ?>');
+        $php = $this->realUpload('shell.php.jpg', '<?php echo "not an image"; ?>');
 
         $this->post('/api/v1/provider/profile', ['logo' => $svg], ['Accept' => 'application/json'])->assertStatus(422)->assertJsonValidationErrors('logo');
         $this->post('/api/v1/provider/documents', ['type' => 'commercial_register', 'file' => $html], ['Accept' => 'application/json'])
@@ -308,6 +308,32 @@ class SecurityTest extends ApiTestCase
         $this->call('POST', '/api/v1/payments/webhook', [], [], [], $headers + ['HTTP_X_SIGNATURE' => FakePaymentGateway::sign($body)], $body)
             ->assertOk()->assertJsonPath('duplicate', false);
         $this->assertSame('confirmed', $orders->first()->fresh()->status->value);
+    }
+
+    public function test_public_pages_only_run_scripts_with_the_request_nonce(): void
+    {
+        $response = $this->get('/')->assertOk();
+        $policy = (string) $response->headers->get('Content-Security-Policy');
+
+        $this->assertMatchesRegularExpression("/script-src 'self' 'nonce-[^']+'/", $policy);
+        $this->assertStringNotContainsString('unsafe', explode(';', $policy)[1]);
+        $this->assertStringContainsString("object-src 'none'", $policy);
+        $this->assertStringContainsString("base-uri 'self'", $policy);
+
+        preg_match("/'nonce-([^']+)'/", $policy, $nonce);
+        $html = $response->getContent();
+        $this->assertSame(0, preg_match('/<script(?![^>]*(type="application\/ld\+json"|nonce="'.preg_quote($nonce[1], '/').'"))/', $html));
+
+        // Each request gets its own nonce.
+        $this->assertNotSame($policy, $this->get('/')->headers->get('Content-Security-Policy'));
+    }
+
+    public function test_dashboards_get_a_policy_filament_can_run_under(): void
+    {
+        $policy = (string) $this->get('/admin/login')->headers->get('Content-Security-Policy');
+
+        $this->assertStringContainsString("'unsafe-eval'", $policy);
+        $this->assertStringContainsString("frame-ancestors 'self'", $policy);
     }
 
     private function realUpload(string $name, string $content): UploadedFile

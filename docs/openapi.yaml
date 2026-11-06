@@ -1836,6 +1836,38 @@ paths:
       parameters: [ { $ref: '#/components/parameters/Id' } ]
       responses:
         '200': { description: Settlement, content: { application/json: { schema: { type: object, properties: { data: { $ref: '#/components/schemas/Settlement' } } } } } }
+  /provider/plans:
+    get:
+      tags: [Provider]
+      summary: Active plans, free plan first
+      responses:
+        '200': {description: OK}
+  /provider/subscription:
+    get:
+      tags: [Provider]
+      summary: Current plan, free plan, pending request and history (finance.view)
+      responses:
+        '200': {description: OK}
+    post:
+      tags: [Provider]
+      summary: Ask for a paid plan (profile.manage); an admin activates it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id: {type: integer}
+      responses:
+        '201': {description: Created}
+  /provider/subscription/pending:
+    delete:
+      tags: [Provider]
+      summary: Cancel the pending plan request (profile.manage)
+      responses:
+        '200': {description: OK}
   /provider/reviews:
     get:
       tags: [Provider]

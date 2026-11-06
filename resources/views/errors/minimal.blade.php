@@ -29,9 +29,7 @@
     <title>{{ $title }} | {{ __('site.brand') }}</title>
     <meta name="theme-color" content="#0B0B10">
     <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&amp;display=swap" rel="stylesheet">
+    <link href="{{ asset('fonts/ibm-plex-sans-arabic/ibm-plex-sans-arabic.css') }}" rel="stylesheet">
     <style>
 @include('site.partials.base-css')
 body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }

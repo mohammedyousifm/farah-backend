@@ -1,7 +1,7 @@
 # Farah API v1 (فرة)
 
 REST API for the Farah customer and provider mobile app (Flutter).
-Machine-readable spec: [`openapi.yaml`](openapi.yaml). Source: `routes/api.php`, `app/Http/**`.
+Machine-readable spec: [`openapi.yaml`](openapi.yaml). Postman collection with real examples: [`postman/Farah-API.postman_collection.json`](postman/Farah-API.postman_collection.json). Source: `routes/api.php`, `app/Http/**`.
 
 Farah is an app for **booking entertainment / game venues by the hour** ("billiards, table 3, 8-9 PM"):
 
@@ -118,6 +118,7 @@ Statuses are objects so the app can render badges without its own mapping:
 `order_not_payable`, `order_paid`, `order_already_cancelled`,
 `refund_pending`, `refund_not_eligible`, `order_not_refundable`, `invalid_items`, `nothing_left`, `review_not_allowed` (403),
 `already_reviewed`, `forbidden` (403, counter booking for a venue of another provider), `complaint_closed`,
+`duplicate_request` (409), `wallet_not_enough`, `invoice_not_available`, `review_too_early` (403), `venue_limit`, `free_plan`, `plan_inactive`, `subscription_pending`,
 `already_registered`, `document_locked`, `sector_exists`, `sector_request_pending`, `sector_not_allowed` (403),
 `wrong_status`, `provider_not_approved`, `no_activities`, `no_hours`, `venue_locked`, `venue_has_orders`,
 `activity_has_bookings`, `resource_has_bookings`, `member_exists`,
@@ -131,7 +132,7 @@ Statuses are objects so the app can render badges without its own mapping:
 ## 2. Authentication flow (passwordless OTP)
 
 1. `POST /auth/otp/request` `{"identifier": "0501234567"}` (Saudi mobile in any common form, or an email).
-2. User receives a 4-digit code (SMS / email). **`APP_ENV=local` / `testing` only: code `1234` always works**
+2. User receives a 6-digit code (SMS / email). **`APP_ENV=local` / `testing` only: code `1234` always works**
    (disabled in every other environment, including staging). Only the latest code is valid; it allows 5 attempts,
    then `otp_locked` until a new code is requested. Requests are throttled per IP (5/min) and per normalised number (10/h).
 3. `POST /auth/otp/verify` `{"identifier": "0501234567", "code": "1234", "device_name": "iPhone 15"}`
@@ -211,7 +212,7 @@ Only **published** venues of **approved** providers are visible; anything else a
 | `price_min`, `price_max` | `50`, `200` | on `min_price` = the cheapest hourly price of the venue |
 | `audience` | `families` | `all, families, men, women, kids` (venues for `all` always match) |
 | `featured` | `1` | |
-| `lat`, `lng`, `radius` | `24.71`, `46.67`, `25` | both required together; km (default 50); adds `distance_km` and drops venues without coordinates |
+| `lat`, `lng`, `radius` | `24.71`, `46.67`, `25` | both required together, and they default to the saved location; `radius` in km, no limit when omitted; adds `distance_km` |
 | `sort` | `recommended` | `recommended` (default; featured first, then best rated), `price` (cheapest first), `rating`, `nearest` (default when lat/lng given; needs them), `latest` |
 | `per_page`, `page` | `20` | max 50 |
 
@@ -483,7 +484,7 @@ Staff holding `team.manage` can only add / edit `staff` members with permissions
 | GET | `/provider/sector-requests` | member | |
 | POST | `/provider/sector-requests` | profile.manage | `{sector_id}` to join an existing activity type, or `{name_ar, name_en?, description?}` to propose a new one |
 | GET | `/provider/venues` | member | own venues, any status — `?status=draft,published&q=&per_page=`, paginated full `Venue` |
-| POST | `/provider/venues` | venues.manage | create a draft (below) |
+| POST | `/provider/venues` | venues.manage | create a draft (below). One store per provider: a second one answers `422 venue_limit` |
 | GET | `/provider/venues/{id}` | member | full venue incl. `rejection_reason`, `submitted_at`, inactive activities / resources |
 | PUT / POST | `/provider/venues/{id}` | venues.manage | update (POST for multipart `cover`). Editing a published / rejected venue sends it back to `pending_review`. Suspended venue → `422 venue_locked` |
 | DELETE | `/provider/venues/{id}` | venues.manage | only without orders (`venue_has_orders`) |
@@ -518,6 +519,10 @@ Staff holding `team.manage` can only add / edit `staff` members with permissions
 | GET | `/provider/finance/ledger` | finance.view | `?type=sale,commission&order_id=&date_from=&date_to=&per_page=` — entries with `state: pending\|available\|in_settlement\|paid_out` |
 | GET | `/provider/finance/settlements` | finance.view | `?status=` |
 | GET | `/provider/finance/settlements/{id}` | finance.view | with ledger `entries` |
+| GET | `/provider/plans` | member | active plans, free plan first |
+| GET | `/provider/subscription` | finance.view | `current`, `free_plan`, `pending`, `history` |
+| POST | `/provider/subscription` | profile.manage | `{plan_id}` asks for a paid plan; an admin activates it after offline payment |
+| DELETE | `/provider/subscription/pending` | profile.manage | cancel the pending request |
 | GET | `/provider/reviews` | member | `?venue_id=&rating=&replied=0\|1` |
 | POST | `/provider/reviews/{id}/reply` | reviews.reply | `{reply}` |
 
@@ -636,4 +641,4 @@ curl -s -X POST localhost:8020/api/v1/auth/otp/request -H 'Accept: application/j
 curl -s -X POST localhost:8020/api/v1/auth/otp/verify  -H 'Accept: application/json' -d identifier=0501000000 -d code=1234
 ```
 Demo customers `+966501000000…011`, demo provider owners `+966552000000…003` (after `migrate:fresh --seed`).
-Feature tests: `php artisan test tests/Feature/Api` (database `farah_test`).
+Feature tests: `php artisan test tests/Feature/Api` (database `farah_testing`).

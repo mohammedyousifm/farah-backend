@@ -182,8 +182,13 @@ section.block:nth-of-type(odd) { background: var(--bg-2); }
                     </div>
             </div>
             <div class="phone" id="app-tour" role="img" aria-label="{{ __('landing.app.screenshot_alt') }}">
+                {{-- Only the first screen loads with the page; the others are fetched after it (see the script below). --}}
                 @foreach ($tour as $frame)
-                    <img src="{{ asset('images/app-dark/'.$frame.'.webp') }}" alt="" width="540" height="1200" @class(['is-on' => $loop->first])>
+                    @if ($loop->first)
+                        <img src="{{ asset('images/app-dark/'.$frame.'.webp') }}" alt="" width="540" height="1200" fetchpriority="high" class="is-on">
+                    @else
+                        <img data-src="{{ asset('images/app-dark/'.$frame.'.webp') }}" alt="" width="540" height="1200" decoding="async">
+                    @endif
                 @endforeach
             </div>
         </div>
@@ -344,18 +349,23 @@ section.block:nth-of-type(odd) { background: var(--bg-2); }
         </div>
     </section>
     {{-- Plays the app tour in the hero; it stops while the phone is off screen. --}}
-    <script>
+    <script nonce="{{ Vite::cspNonce() }}">
         (() => {
             const tour = document.getElementById('app-tour');
             if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             const frames = [...tour.querySelectorAll('img')];
             let current = 0, timer = null;
+            // The other screens download once the page has finished loading, so they never hold up the first view.
+            const fetchFrames = () => frames.forEach((img) => { if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; } });
+            document.readyState === 'complete' ? fetchFrames() : addEventListener('load', fetchFrames, { once: true });
             new IntersectionObserver(([entry]) => {
                 clearInterval(timer);
                 if (!entry.isIntersecting) return;
                 timer = setInterval(() => {
+                    const next = (current + 1) % frames.length;
+                    if (!frames[next].complete || frames[next].dataset.src) return; // wait until it has arrived
                     frames[current].classList.remove('is-on');
-                    current = (current + 1) % frames.length;
+                    current = next;
                     frames[current].classList.add('is-on');
                 }, 2600);
             }, { threshold: .4 }).observe(tour);

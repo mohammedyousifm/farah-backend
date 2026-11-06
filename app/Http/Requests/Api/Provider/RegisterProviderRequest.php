@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
+use App\Rules\ArabicText;
 use App\Rules\GoogleMapsLink;
 use App\Rules\SaudiIban;
 
@@ -12,7 +13,7 @@ class RegisterProviderRequest extends ApiRequest
     {
         return [
             'type' => ['sometimes', 'in:establishment'],
-            'name_ar' => ['required', 'string', 'max:150'],
+            'name_ar' => ['required', 'string', 'max:150', new ArabicText],
             'name_en' => ['nullable', 'string', 'max:150'],
             'bio_ar' => ['nullable', 'string', 'max:3000'],
             'bio_en' => ['nullable', 'string', 'max:3000'],

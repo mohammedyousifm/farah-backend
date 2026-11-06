@@ -9,8 +9,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('provider.checkin.phone_title') }}</title>
     <link rel="icon" href="{{ asset('images/favicon.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+    <link href="{{ asset('fonts/almarai/almarai.css') }}" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Almarai', system-ui, sans-serif; background: #111014; color: #fff; min-height: 100dvh; display: flex; flex-direction: column; }
@@ -72,9 +71,8 @@
         <p class="note" id="note">{{ __('provider.checkin.phone_hint') }}</p>
     </main>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"
-        integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg==" crossorigin="anonymous"></script>
-    <script>
+    <script src="{{ asset('assets/html5-qrcode.min.js') }}"></script>
+    <script nonce="{{ Vite::cspNonce() }}">
         (() => {
             const url = {{ Js::from(route('provider.phone-scan.scan', $token)) }};
             const csrf = document.querySelector('meta[name=csrf-token]').content;

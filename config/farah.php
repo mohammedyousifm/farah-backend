@@ -3,6 +3,9 @@
 return [
     'currency' => 'SAR',
 
+    // The scheduler (one cron line) also sends queued mail every minute. Turn off on a server with its own worker.
+    'queue_from_scheduler' => (bool) env('QUEUE_FROM_SCHEDULER', true),
+
     // Working hours and time slots are wall-clock times in this timezone; the database stores UTC.
     'timezone' => env('FARAH_TIMEZONE', 'Asia/Riyadh'),
 

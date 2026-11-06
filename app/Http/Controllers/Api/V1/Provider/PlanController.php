@@ -13,9 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * The provider's plan. Every provider is on the free plan until a paid one runs. Asking for a paid plan only
- * sends a request: activating it is an admin decision, and every feature is enforced by the server
- * (SubscriptionService), whatever this API is sent.
+ * The provider's plan. Every provider is on the free plan until a paid one runs. Asking for a paid plan sends a
+ * request; once approved the provider pays it online (pay) and the gateway's signed confirmation starts it, or
+ * an admin activates it after a bank transfer. Every feature is enforced by the server (SubscriptionService),
+ * whatever this API is sent.
  */
 class PlanController extends ProviderController
 {
@@ -66,6 +67,19 @@ class PlanController extends ProviderController
         $subscriptions->cancel($pending, $request->user());
 
         return response()->json(['message' => __('api.plans.request_cancelled')]);
+    }
+
+    public function pay(Request $request, SubscriptionService $subscriptions): JsonResponse
+    {
+        $pending = $this->provider($request)->subscriptions()->where('status', SubscriptionStatus::Pending)->latest('id')->firstOrFail();
+        $payment = $subscriptions->checkout($pending, $request->user());
+
+        return response()->json(['data' => [
+            'reference' => $payment->reference,
+            'amount' => $payment->amount,
+            'currency' => $payment->currency,
+            'checkout_url' => $payment->checkout_url,
+        ]], 201);
     }
 
     public static function plan(Plan $plan): array

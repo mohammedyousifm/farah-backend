@@ -59,7 +59,7 @@ abstract class ProviderPanelTestCase extends ApiTestCase
     /** A staff member of $this->provider with exactly these permissions. */
     protected function staff(array $permissions, string $email = 'staff@example.com'): User
     {
-        $staff = User::create(['name' => 'Staff', 'email' => $email, 'password' => 'password', 'type' => UserType::Customer, 'status' => 'active']);
+        $staff = User::create(['name' => 'Staff', 'email' => $email, 'password' => 'password', 'type' => UserType::Customer, 'status' => 'active', 'email_verified_at' => now()]);
         $this->provider->members()->create(['user_id' => $staff->id, 'role' => 'staff', 'permissions' => $permissions, 'is_active' => true]);
 
         return $staff;

@@ -98,7 +98,7 @@ class SettlementResource extends Resource
                 TextEntry::make('payment_reference')->label(__('admin.fields.payment_reference'))->placeholder('-')->copyable(),
                 TextEntry::make('receipt_path')->label(__('admin.fields.receipt'))->placeholder('-')
                     ->formatStateUsing(fn () => __('admin.actions.open_file'))
-                    ->url(fn (Settlement $r) => $r->receiptUrl(), true)
+                    ->url(fn (Settlement $r) => $r->panelReceiptUrl(), true)
                     ->color('primary'),
                 TextEntry::make('notes')->label(__('admin.fields.notes'))->placeholder('-')->columnSpanFull(),
             ]),

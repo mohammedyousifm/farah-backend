@@ -8,9 +8,11 @@ use App\Models\BookingSlot;
 use App\Models\LedgerEntry;
 use App\Models\Order;
 use App\Models\WebhookEvent;
+use App\Services\AvailabilityService;
 use App\Services\Integrations\Drivers\FakePaymentGateway;
 use App\Services\OrderService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 
@@ -308,7 +310,102 @@ class BookingFlowTest extends ApiTestCase
         $this->assertSame(1, app(OrderService::class)->expireStale());
         $this->assertSame(0, BookingSlot::count());
         $this->getJson("/api/v1/orders/{$orderId}")->assertJsonPath('data.status.value', 'expired')->assertJsonPath('data.bookings.0.status.value', 'expired');
-        $this->postJson("/api/v1/orders/{$orderId}/pay")->assertStatus(422)->assertJsonPath('code', 'order_not_payable');
+        $this->postJson("/api/v1/orders/{$orderId}/pay")->assertStatus(409)->assertJsonPath('code', 'order_expired');
+    }
+
+    /** Security report 2026-11-02, 7.1: the hold must end on time even when the scheduler never runs. */
+    public function test_an_expired_hold_is_released_without_the_scheduler(): void
+    {
+        $venue = $this->venue($this->provider());
+        $activity = $this->activity($venue);
+        $table = $activity->resources->first();
+
+        Sanctum::actingAs($this->customer());
+        $orderId = $this->postJson('/api/v1/bookings', $this->line($venue, 2, null, $table->id))->assertCreated()->json('data.order.id');
+
+        // Inside the window another customer cannot take it.
+        Sanctum::actingAs($this->customer('+966502222222'));
+        $this->postJson('/api/v1/bookings', $this->line($venue, 2, null, $table->id))->assertStatus(409)->assertJsonPath('code', 'slot_taken');
+
+        // Window over, no expiry job: availability shows the slot free again and the other customer gets it.
+        $this->travel(16)->minutes();
+        $date = $this->slot()->setTimezone('Asia/Riyadh')->toDateString();
+        $statuses = collect(app(AvailabilityService::class)->forDate($activity->fresh(), $date)['resources'][0]['slots'])
+            ->filter(fn ($s) => $s['starts_at']->equalTo($this->slot()))->pluck('status')->all();
+        $this->assertSame(['available'], $statuses);
+        $this->assertSame('expired', Order::find($orderId)->status->value);
+        $this->postJson('/api/v1/bookings', $this->line($venue, 2, null, $table->id))->assertCreated();
+
+        // The first customer can no longer pay the old order, by card or wallet.
+        Sanctum::actingAs(Order::find($orderId)->user);
+        $this->postJson("/api/v1/orders/{$orderId}/pay")->assertStatus(409)->assertJsonPath('code', 'order_expired');
+        $this->postJson("/api/v1/orders/{$orderId}/pay-wallet")->assertStatus(409)->assertJsonPath('code', 'order_expired');
+    }
+
+    /** Security report 2026-11-02, 7.1: paying is refused the moment the window ends, before any sweep. */
+    public function test_payment_is_refused_after_the_window_even_before_the_sweep(): void
+    {
+        $venue = $this->venue($this->provider());
+        Sanctum::actingAs($this->customer());
+        $booked = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
+        $orderId = $booked->json('data.order.id');
+        $url = $booked->json('data.payment.checkout_url');
+
+        $this->travel(16)->minutes();
+        $this->post($url, ['action' => 'pay'])->assertOk()->assertSee(__('api.payments.order_expired', [], 'ar'))->assertDontSee('تم الدفع بنجاح');
+        $this->get($url)->assertOk()->assertSee(__('api.payments.order_expired', [], 'ar'))->assertDontSee('ادفع الآن');
+        $this->assertSame('expired', Order::find($orderId)->status->value);
+        $this->assertSame(0, BookingSlot::count());
+    }
+
+    /** Security report 2026-11-02, 7.3: the sandbox page needs the signed link, not just the payment reference. */
+    public function test_fake_gateway_page_needs_the_signed_link(): void
+    {
+        $venue = $this->venue($this->provider());
+        Sanctum::actingAs($this->customer());
+        $booked = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
+        $reference = $booked->json('data.payment.reference');
+
+        $this->get("/payments/fake/{$reference}")->assertForbidden();
+        $this->post("/payments/fake/{$reference}", ['action' => 'pay'])->assertForbidden();
+        $this->get($booked->json('data.payment.checkout_url').'x')->assertForbidden(); // tampered signature
+        $this->assertSame('pending_payment', Order::first()->status->value);
+
+        $page = $this->get($booked->json('data.payment.checkout_url'))->assertOk();
+        $this->assertStringContainsString('no-store', $page->headers->get('Cache-Control'));
+
+        // A link past its lifetime is refused too.
+        $this->travel(25)->minutes();
+        $this->get($booked->json('data.payment.checkout_url'))->assertForbidden();
+    }
+
+    /** Security report 2026-11-02, checklist B/E: a used link cannot pay twice; the sandbox does not exist in production. */
+    public function test_fake_gateway_link_is_single_use_and_absent_in_production(): void
+    {
+        $venue = $this->venue($this->provider());
+        Sanctum::actingAs($this->customer());
+        $booked = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
+        $url = $booked->json('data.payment.checkout_url');
+
+        $this->post($url, ['action' => 'pay'])->assertOk()->assertSee('تم الدفع بنجاح');
+        $this->post($url, ['action' => 'pay'])->assertOk(); // already processed: only shows the result, fires nothing
+        $this->assertSame(1, WebhookEvent::count());
+        $this->assertSame(1, LedgerEntry::where('order_id', $booked->json('data.order.id'))->where('type', 'sale')->where('account', 'provider')->count());
+
+        // Production: the page and its form are gone, whatever the link.
+        Sanctum::actingAs($this->customer('+966504444444'));
+        $other = $this->postJson('/api/v1/bookings', $this->line($venue, 1, $this->slot(3, '22:00')))->assertCreated();
+        $this->app['env'] = 'production';
+        $this->get($other->json('data.payment.checkout_url'))->assertNotFound();
+        $this->post($other->json('data.payment.checkout_url'), ['action' => 'pay'])->assertNotFound();
+        $this->app['env'] = 'testing';
+        $this->assertSame('pending_payment', Order::find($other->json('data.order.id'))->status->value);
+    }
+
+    /** The signed form target of the sandbox checkout page. */
+    private function fakeAction(string $reference): string
+    {
+        return URL::temporarySignedRoute('payments.fake.complete', FakePaymentGateway::linkExpiry(), ['reference' => $reference]);
     }
 
     public function test_failed_payment_and_fake_gateway_page(): void
@@ -316,10 +413,11 @@ class BookingFlowTest extends ApiTestCase
         $venue = $this->venue($this->provider());
         Sanctum::actingAs($this->customer());
 
-        $reference = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated()->json('data.payment.reference');
+        $booked = $this->postJson('/api/v1/bookings', $this->line($venue))->assertCreated();
+        $reference = $booked->json('data.payment.reference');
 
-        $this->get("/payments/fake/{$reference}")->assertOk()->assertSee('ادفع الآن')->assertSee($venue->name_ar);
-        $this->post("/payments/fake/{$reference}", ['action' => 'fail'])->assertOk()->assertSee('لم تكتمل');
+        $this->get($booked->json('data.payment.checkout_url'))->assertOk()->assertSee('ادفع الآن')->assertSee($venue->name_ar);
+        $this->post($this->fakeAction($reference), ['action' => 'fail'])->assertOk()->assertSee('لم تكتمل');
 
         $this->getJson("/api/v1/payments/{$reference}")->assertJsonPath('data.status.value', 'failed');
         $this->assertSame('pending_payment', Order::first()->status->value);
@@ -333,7 +431,7 @@ class BookingFlowTest extends ApiTestCase
 
         $reference = $this->postJson('/api/v1/bookings', $this->line($venue, 3))->json('data.payment.reference');
 
-        $this->post("/payments/fake/{$reference}", ['action' => 'pay'])->assertOk()->assertSee('تم الدفع بنجاح')->assertSee('تم تأكيد حجزك');
+        $this->post($this->fakeAction($reference), ['action' => 'pay'])->assertOk()->assertSee('تم الدفع بنجاح')->assertSee('تم تأكيد حجزك');
         $this->assertSame('confirmed', Order::first()->status->value);
         $this->assertSame('confirmed', Booking::first()->status->value);
         $this->assertSame(3, BookingSlot::count());

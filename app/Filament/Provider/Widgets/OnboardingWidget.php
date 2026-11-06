@@ -3,6 +3,7 @@
 namespace App\Filament\Provider\Widgets;
 
 use App\Enums\DocumentStatus;
+use App\Enums\DocumentType;
 use App\Enums\ProviderStatus;
 use App\Enums\RequestStatus;
 use App\Enums\SubscriptionStatus;
@@ -14,6 +15,7 @@ use App\Filament\Provider\Resources\Documents\DocumentResource;
 use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Models\Provider;
+use App\Models\ProviderDocument;
 use App\Models\ProviderDocumentRequest;
 use App\Models\Venue;
 use Filament\Widgets\Widget;
@@ -45,13 +47,11 @@ class OnboardingWidget extends Widget
     /** Profile fields still empty, as translated labels. */
     public static function missingProfileFields(Provider $provider): array
     {
+        // Bank details are not asked here: they are needed for the first payout, not for the review.
         $fields = [
             'name_ar' => 'name_ar',
             'city_id' => 'city',
             'phone' => 'phone',
-            'bank_name' => 'bank_name',
-            'account_holder' => 'account_holder',
-            'iban' => 'iban',
             'cr_number' => 'cr_number',
             'maps_url' => 'maps_url',
         ];
@@ -63,7 +63,40 @@ class OnboardingWidget extends Widget
     }
 
     /**
-     * No document is asked of every store: only what the platform requested while reviewing it. One row per request
+     * Documents every store needs before approval (ProviderService::assertRequiredDocuments): the commercial
+     * register, and a licence for each chosen activity type that requires one. Approved ones drop off.
+     *
+     * @return array<int, array{label: string, status: string, state: string}>
+     */
+    public static function requiredDocuments(Provider $provider): array
+    {
+        $documents = $provider->documents()->latest('id')->get();
+        $row = function (string $label, ?ProviderDocument $doc) {
+            return [
+                'label' => $label,
+                'status' => $doc?->status->getLabel() ?? __('provider.onboarding.not_uploaded'),
+                'state' => match ($doc?->status) {
+                    DocumentStatus::Approved => 'done',
+                    DocumentStatus::Pending => 'waiting',
+                    null => 'todo',
+                    default => 'problem',
+                },
+            ];
+        };
+
+        $rows = [$row(DocumentType::CommercialRegister->getLabel(), $documents->firstWhere('type', DocumentType::CommercialRegister))];
+
+        foreach ($provider->sectors()->where('requires_license', true)->get() as $sector) {
+            $licence = $documents->first(fn (ProviderDocument $d) => $d->type === DocumentType::License
+                && ($d->sector_id === $sector->id || $d->sector_id === null));
+            $rows[] = $row(DocumentType::License->getLabel().' — '.$sector->tr('name'), $licence);
+        }
+
+        return collect($rows)->reject(fn (array $r) => $r['state'] === 'done')->values()->all();
+    }
+
+    /**
+     * Besides the required documents, whatever the platform asked for while reviewing. One row per request
      * still in play (not sent yet, waiting for review, or rejected); approved answers drop off.
      *
      * @return array<int, array{label: string, status: string, state: string}>
@@ -188,14 +221,15 @@ class OnboardingWidget extends Widget
                 'detail' => $missing === [] ? __('provider.onboarding.profile_ok') : __('provider.onboarding.missing', ['fields' => implode('، ', $missing)]),
                 'url' => $canManage ? EditProviderProfile::getUrl() : null,
             ],
-            // Only when the platform asked for something while reviewing (nothing is required up front).
-            ...($requested === [] ? [] : [[
+            // The commercial register (+ licences) always; plus anything the platform asked for while reviewing.
+            [
                 'key' => 'documents',
                 'label' => __('provider.onboarding.step_documents'),
-                'done' => collect($requested)->every(fn ($r) => $r['state'] === 'waiting'),
-                'items' => $requested,
-                'url' => $requestsUrl,
-            ]]),
+                'done' => collect($docs = [...static::requiredDocuments($provider), ...$requested])->every(fn ($r) => $r['state'] === 'waiting'),
+                'items' => $docs,
+                'detail' => $docs === [] ? __('provider.onboarding.documents_ok') : null,
+                'url' => $canManage ? DocumentResource::getUrl() : null,
+            ],
             [
                 'key' => 'sectors',
                 'label' => __('provider.onboarding.step_sectors'),

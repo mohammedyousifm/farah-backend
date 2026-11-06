@@ -47,6 +47,8 @@ class OrderService
      */
     public function createOnline(User $user, array $lines): Order
     {
+        $this->expireStale(); // a hold whose window ended must not block the slot, cron or not
+
         return DB::transaction(fn () => $this->buildOrder($lines, [
             'user_id' => $user->id,
             'channel' => 'online',
@@ -66,6 +68,8 @@ class OrderService
      */
     public function createOffline(Provider $provider, array $lines, array $customer, string $method, User $by): Order
     {
+        $this->expireStale();
+
         $order = DB::transaction(fn () => $this->buildOrder($lines, [
             'user_id' => null,
             'channel' => 'offline',
@@ -178,7 +182,32 @@ class OrderService
         return $expired;
     }
 
-    /** Scheduler: drop holds whose payment window passed. */
+    /**
+     * Before a NEW payment is started for an order (card checkout, wallet, sandbox page): the order must
+     * belong to the customer and still be inside its payment window. An order whose window ended is
+     * released on the spot and refused, so the customer has to book again on current availability.
+     * (A payment the gateway already captured is a different case: confirm() takes the slots again if free.)
+     */
+    public function assertPayable(Order $order, ?User $user = null): void
+    {
+        if ($user && $order->user_id !== $user->id) {
+            throw new BusinessException(__('api.payments.order_not_payable'), 'order_not_payable');
+        }
+
+        if ($order->holdExpired()) {
+            $this->expire($order);
+        }
+
+        if ($order->status === OrderStatus::Expired) {
+            throw new BusinessException(__('api.payments.order_expired'), 'order_expired', 409);
+        }
+
+        if ($order->status !== OrderStatus::PendingPayment) {
+            throw new BusinessException(__('api.payments.order_not_payable'), 'order_not_payable');
+        }
+    }
+
+    /** Drop holds whose payment window passed. Run by the scheduler and on every read/write that depends on free slots. */
     public function expireStale(): int
     {
         $count = 0;

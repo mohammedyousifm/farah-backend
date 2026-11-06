@@ -975,6 +975,8 @@ return [
         'members' => 'Team members',
         'pending_documents' => ':count document(s) are still pending review; review them before approving.',
         'requested_documents' => ':count requested document(s) have not arrived yet. Wait for them or cancel the request before approving.',
+        'missing_commercial_register' => 'Approve the commercial register document first. Ask the provider for it from the Documents tab.',
+        'missing_license' => 'Cannot approve: an approved licence is missing for: :sectors.',
     ],
     'documents' => [
         'expiring_soon' => 'Expiring soon',

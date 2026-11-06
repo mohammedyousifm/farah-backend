@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -15,10 +16,13 @@ class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $panel = $request->is('admin*', 'provider*', 'livewire*');
+        $nonce = $panel ? null : Vite::useCspNonce();
+
         $response = $next($request);
 
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
-        $response->headers->set('Content-Security-Policy', "frame-ancestors 'self'");
+        $response->headers->set('Content-Security-Policy', self::contentPolicy($nonce));
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
@@ -47,5 +51,25 @@ class SecurityHeaders
         }
 
         return $response;
+    }
+
+    /** Public pages run only our own files and scripts carrying this request's nonce. Filament needs inline code and eval. */
+    private static function contentPolicy(?string $nonce): string
+    {
+        $scripts = $nonce ? "script-src 'self' 'nonce-{$nonce}'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
+        return implode('; ', [
+            "default-src 'self'",
+            $scripts,
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' data: https://fonts.gstatic.com",
+            "img-src 'self' data: blob: https:",
+            "media-src 'self' blob: https:",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'self'",
+        ]);
     }
 }

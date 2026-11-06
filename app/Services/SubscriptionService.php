@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentStatus;
 use App\Enums\PlanFeature;
 use App\Enums\ProviderStatus;
 use App\Enums\SubscriptionStatus;
 use App\Enums\UserType;
 use App\Exceptions\BusinessException;
+use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanItem;
 use App\Models\Provider;
@@ -14,9 +16,12 @@ use App\Models\ProviderSubscription;
 use App\Models\SubscriptionFeature;
 use App\Models\User;
 use App\Notifications\SystemNotification;
+use App\Services\Integrations\Contracts\PaymentGateway;
+use App\Services\Integrations\IntegrationLogger;
 use App\Support\AdminNotifier;
 use App\Support\Once;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Provider plans. Every provider is on the free plan (Plan::free()) until a paid plan runs. A provider asks
@@ -71,10 +76,66 @@ class SubscriptionService
     }
 
     /**
-     * Starts the subscription now. A plan that is running already is closed first: moving to another plan
-     * (an upgrade) replaces it, it does not add to it.
+     * Online payment of a pending paid plan, once the provider is approved. The amount is the price stored on
+     * the request (set by the server from the plan, never sent by the browser). Activation happens only when
+     * the gateway's signed webhook says "paid" (PaymentService::markPaid → activateFromPayment); a failed,
+     * cancelled or abandoned checkout changes nothing.
      */
-    public function activate(ProviderSubscription $subscription, User $by, ?string $paymentReference = null): void
+    public function checkout(ProviderSubscription $subscription, User $by, ?string $returnUrl = null): Payment
+    {
+        if (! $subscription->provider->isApproved()) {
+            throw new BusinessException(__('api.plans.pay_after_approval'), 'provider_not_approved');
+        }
+        if ($subscription->status !== SubscriptionStatus::Pending || $subscription->price <= 0) {
+            throw new BusinessException(__('api.plans.not_payable'), 'subscription_not_payable');
+        }
+
+        $payment = Payment::create([
+            'reference' => (string) Str::uuid(),
+            'user_id' => $by->id,
+            'amount' => round((float) $subscription->price, 2),
+            'currency' => config('farah.currency'),
+            'gateway' => config('farah.integrations.payment.driver'),
+            'status' => PaymentStatus::Initiated,
+            'payload' => ['subscription_id' => $subscription->id, 'return_url' => $returnUrl],
+        ]);
+
+        $checkout = IntegrationLogger::call('payment', 'create_checkout', ['reference' => $payment->reference, 'amount' => $payment->amount],
+            fn () => app(PaymentGateway::class)->createCheckout($payment, ['subscription' => $subscription->id, 'return_url' => $returnUrl]));
+
+        $payment->update(['gateway_payment_id' => $checkout['id'], 'checkout_url' => $checkout['checkout_url']]);
+
+        return $payment;
+    }
+
+    /**
+     * The gateway confirmed a plan payment. Starts the plan with the payment reference on it. If the request is
+     * no longer waiting (withdrawn, rejected, the store suspended meanwhile) the money is not kept silently:
+     * the finance team is told to refund it.
+     */
+    public function activateFromPayment(Payment $payment): void
+    {
+        $subscription = ProviderSubscription::find($payment->payload['subscription_id'] ?? 0);
+
+        try {
+            if (! $subscription || $subscription->status !== SubscriptionStatus::Pending) {
+                throw new BusinessException('subscription_not_pending', 'subscription_not_pending');
+            }
+            $this->activate($subscription, null, $payment->reference);
+        } catch (BusinessException $e) {
+            AdminNotifier::send(['finance'], 'subscription_payment_unmatched', [
+                'reference' => $payment->reference,
+                'amount' => $payment->amount,
+            ], ['payment_reference' => $payment->reference, 'subscription_id' => $subscription?->id]);
+        }
+    }
+
+    /**
+     * Starts the subscription. Moving to another plan (an upgrade) closes the running one and starts now;
+     * renewing the plan that is running starts the day it ends, so no paid day is lost. $by is null when
+     * the gateway's confirmation started it.
+     */
+    public function activate(ProviderSubscription $subscription, ?User $by, ?string $paymentReference = null): void
     {
         // A plan's days count from the moment the store can use them: approve the provider first.
         if (! $subscription->provider->isApproved()) {
@@ -85,13 +146,19 @@ class SubscriptionService
         }
 
         DB::transaction(function () use ($subscription, $by, $paymentReference) {
-            ProviderSubscription::where('provider_id', $subscription->provider_id)
+            $running = ProviderSubscription::where('provider_id', $subscription->provider_id)
                 ->where('status', SubscriptionStatus::Active)
+                ->where('ends_at', '>', now())
                 ->whereKeyNot($subscription->id)
-                ->get()
-                ->each(fn (ProviderSubscription $old) => $this->close($old));
+                ->get();
+            $renewing = $running->firstWhere('plan_id', $subscription->plan_id);
 
-            $starts = now();
+            if ($renewing) {
+                $starts = $renewing->ends_at->copy();
+            } else {
+                $running->each(fn (ProviderSubscription $old) => $this->close($old));
+                $starts = now();
+            }
             $ends = $starts->copy()->addDays($subscription->duration_days);
 
             $subscription->update([
@@ -99,7 +166,7 @@ class SubscriptionService
                 'starts_at' => $starts,
                 'ends_at' => $ends,
                 'payment_reference' => $paymentReference,
-                'decided_by' => $by->id,
+                'decided_by' => $by?->id,
                 'decided_at' => now(),
             ]);
 
@@ -146,6 +213,43 @@ class SubscriptionService
         if ($wasActive && $by?->type === UserType::Admin) {
             SystemNotification::send($subscription->provider->owner, 'subscription_cancelled', ['plan' => $subscription->plan->name_ar, 'reason' => $reason ?? '-'], ['subscription_id' => $subscription->id]);
         }
+    }
+
+    /**
+     * Daily: tells each owner, once, that the paid plan ends within $days days, unless a renewal is already
+     * waiting or queued after it. Returns how many were told.
+     */
+    public function remindExpiring(int $days = 3): int
+    {
+        $count = 0;
+
+        ProviderSubscription::query()
+            ->where('status', SubscriptionStatus::Active)
+            ->whereNull('expiry_notified_at')
+            ->whereBetween('ends_at', [now(), now()->addDays($days)])
+            ->with(['plan', 'provider.owner'])
+            ->get()
+            ->each(function (ProviderSubscription $subscription) use (&$count) {
+                $renewed = ProviderSubscription::where('provider_id', $subscription->provider_id)->whereKeyNot($subscription->id)
+                    ->where(fn ($q) => $q->where('status', SubscriptionStatus::Pending)
+                        ->orWhere(fn ($q) => $q->where('status', SubscriptionStatus::Active)->where('starts_at', '>=', $subscription->ends_at)))
+                    ->exists();
+
+                // Claimed first, so two runs never send it twice.
+                if (ProviderSubscription::whereKey($subscription->id)->whereNull('expiry_notified_at')->update(['expiry_notified_at' => now()]) === 0 || $renewed) {
+                    return;
+                }
+
+                if ($owner = $subscription->provider?->owner) {
+                    SystemNotification::send($owner, 'subscription_expiring', [
+                        'plan' => $subscription->plan->name_ar,
+                        'date' => $subscription->ends_at->timezone(config('farah.timezone'))->format('Y-m-d'),
+                    ], ['subscription_id' => $subscription->id]);
+                    $count++;
+                }
+            });
+
+        return $count;
     }
 
     /** The running subscription (active and inside its dates), if any. */

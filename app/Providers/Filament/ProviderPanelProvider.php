@@ -11,11 +11,12 @@ use App\Filament\Provider\ProviderNavGroup;
 use App\Filament\Provider\Resources\Venues\VenueResource;
 use App\Filament\Provider\Support\ProviderAccess;
 use App\Filament\Support\Brand;
+use App\Filament\Support\InitialsAvatar;
 use App\Http\Middleware\SetAdminLocale;
 use App\Models\Provider;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\Email\EmailAuthentication;
-use Filament\FontProviders\GoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -48,6 +49,8 @@ class ProviderPanelProvider extends PanelProvider
             ->login()
             ->registration(RegisterProvider::class)
             ->passwordReset()
+            // A new provider confirms the e-mail address before the dashboard opens (link sent through the queue).
+            ->emailVerification()
             // "My account" in the user menu: the signed-in person's own name, email and password.
             ->profile(EditProfile::class, isSimple: false)
             // Two-step login: each person switches on a code by SMS, by e-mail, or both, from "My account".
@@ -59,7 +62,7 @@ class ProviderPanelProvider extends PanelProvider
             // several providers; hide it for everyone else (the profile has its own menu item).
             ->tenantMenu(fn () => (auth('provider')->user()?->providers()->wherePivot('is_active', true)->count() ?? 0) > 1)
             // The bell: everything this person was notified about, refreshed every half minute.
-            ->databaseNotifications()
+            ->databaseNotifications(isLazy: false) // the bell renders with the page: one Livewire request less per page
             ->databaseNotificationsPolling('30s')
             // Leaving a half-filled form asks first.
             ->unsavedChangesAlerts()
@@ -80,7 +83,8 @@ class ProviderPanelProvider extends PanelProvider
                 'success' => Color::Emerald,
                 'danger' => Color::Rose,
             ])
-            ->font('Almarai', provider: GoogleFontProvider::class)
+            ->font('Almarai', url: asset('fonts/almarai/almarai.css'), provider: LocalFontProvider::class) // self-hosted: no Google round trips
+            ->defaultAvatarProvider(InitialsAvatar::class)
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth('full')
             // Built with lazy labels: NavigationGroup::fromEnum() would translate once at boot,

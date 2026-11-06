@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\Provider;
 
 use App\Http\Requests\Api\ApiRequest;
+use App\Rules\ArabicText;
 use App\Rules\GoogleMapsLink;
 use App\Rules\SaudiIban;
 
@@ -12,7 +13,7 @@ class UpdateProviderProfileRequest extends ApiRequest
     public function rules(): array
     {
         return [
-            'name_ar' => ['sometimes', 'required', 'string', 'max:150'],
+            'name_ar' => ['sometimes', 'required', 'string', 'max:150', new ArabicText],
             'name_en' => ['sometimes', 'nullable', 'string', 'max:150'],
             'bio_ar' => ['sometimes', 'nullable', 'string', 'max:3000'],
             'bio_en' => ['sometimes', 'nullable', 'string', 'max:3000'],

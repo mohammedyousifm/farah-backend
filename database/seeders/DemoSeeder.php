@@ -235,6 +235,7 @@ class DemoSeeder extends Seeder
                 'email' => "provider{$i}@example.com",
                 'password' => 'password', // provider web dashboard login (/provider)
                 'phone_verified_at' => now(),
+                'email_verified_at' => now(),
                 'type' => UserType::Customer,
             ]);
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\FakePaymentController;
 use App\Http\Controllers\InvoicePdfController;
 use App\Http\Controllers\LandingController;
 use App\Http\Controllers\PhoneScanController;
+use App\Http\Controllers\PrivateFileController;
 use App\Http\Controllers\Web\ContactController;
 use App\Http\Controllers\Web\PageController;
 use App\Http\Controllers\Web\PlaceController;
@@ -33,6 +34,13 @@ Route::post('/scan/{token}', [PhoneScanController::class, 'scan'])->middleware('
 // --- Invoice PDF --- (customer app: opened in the phone's browser through a signed 15-minute link)
 Route::get('/invoices/{order}/pdf', InvoicePdfController::class)->whereNumber('order')->middleware(['signed', 'throttle:30,1'])->name('invoices.pdf');
 // --- end invoice PDF ---
+
+// --- Private files --- (dashboards: provider documents and settlement receipts, checked on every request)
+Route::get('/files/documents/{document}', [PrivateFileController::class, 'document'])->whereNumber('document')->middleware('throttle:120,1')->name('files.document');
+Route::get('/files/receipts/{settlement}', [PrivateFileController::class, 'receipt'])->whereNumber('settlement')->middleware('throttle:120,1')->name('files.receipt');
+// Signed, short-lived links (API file_url, upload previews); the path is a query value, see AppServiceProvider.
+Route::get('/private-file', [PrivateFileController::class, 'signed'])->middleware(['signed', 'throttle:120,1'])->name('files.private');
+// --- end private files ---
 
 // --- Admin locale --- (admin workstream; panel language switch kept in the session)
 Route::get('/admin-locale/{locale}', function (Request $request, string $locale) {

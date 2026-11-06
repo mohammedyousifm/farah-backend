@@ -8,6 +8,7 @@ use App\Filament\Support\SaudiInput;
 use App\Filament\Support\Upload;
 use App\Models\City;
 use App\Models\Provider;
+use App\Rules\ArabicText;
 use App\Rules\GoogleMapsLink;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
@@ -64,7 +65,7 @@ class EditProviderProfile extends EditTenantProfile
 
         return $schema->disabled(fn () => $this->readOnly())->components([
             Section::make(__('provider.profile.identity'))->columns(2)->schema([
-                TextInput::make('name_ar')->label(__('provider.fields.name_ar'))->required()->maxLength(150),
+                TextInput::make('name_ar')->label(__('provider.fields.name_ar'))->required()->maxLength(150)->rule(new ArabicText),
                 TextInput::make('name_en')->label(__('provider.fields.name_en'))->maxLength(150),
                 Textarea::make('bio_ar')->label(__('provider.fields.bio_ar'))->rows(4)->maxLength(3000),
                 Textarea::make('bio_en')->label(__('provider.fields.bio_en'))->rows(4)->maxLength(3000),

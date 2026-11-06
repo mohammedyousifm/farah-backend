@@ -12,29 +12,35 @@ use App\Models\City;
 use App\Models\Plan;
 use App\Models\Sector;
 use App\Models\User;
+use App\Rules\ArabicText;
 use App\Rules\GoogleMapsLink;
 use App\Services\OtpService;
 use App\Services\ProviderService;
 use App\Services\SubscriptionService;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
+use Filament\Actions\Action;
 use Filament\Auth\Events\Registered;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Filament\Auth\Pages\Register;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\View;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rules\Password;
 use SensitiveParameter;
 
@@ -50,7 +56,7 @@ class RegisterProvider extends Register
 
     private const PROVIDER_FIELDS = [
         'name_ar', 'name_en', 'cr_number', 'legal_name', 'vat_number',
-        'city_id', 'maps_url', 'website', 'sector_ids', 'bank_name', 'iban', 'account_holder',
+        'city_id', 'maps_url', 'website', 'sector_ids',
     ];
 
     public function getTitle(): string|Htmlable
@@ -67,60 +73,93 @@ class RegisterProvider extends Register
     {
         $plans = Plan::active()->with('items')->orderByDesc('is_free')->orderBy('sort_order')->orderBy('price')->get();
 
+        // Three steps, each checked before the next one opens: the person, the business, then the plan and what
+        // happens after sending. Bank details are not asked here (they are needed for the first payout and are
+        // filled in "Business profile"); documents and the store follow inside the dashboard.
         return $schema->components([
-            // The plan is chosen before the account exists (here, or from the website's ?plan= link). A paid plan
-            // becomes a request that starts once the provider is approved and has paid; until then: the free plan.
-            Section::make(__('provider.register.plan'))->description(__('provider.register.plan_hint'))
-                ->visible($plans->isNotEmpty())
-                ->schema([
-                    Radio::make('plan_id')->hiddenLabel()->required($plans->isNotEmpty())
-                        ->options($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->tr('name').' · '.($p->is_free
-                            ? __('provider.plans.free')
-                            : Fmt::sar($p->price).' / '.__('provider.plans.for_days', ['days' => $p->duration_days]))]))
-                        ->descriptions($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->items
-                            ->map(fn ($item) => $item->feature->getLabel().($item->value ? ' ('.__('provider.plans.up_to', ['count' => $item->value]).')' : ''))
-                            ->implode('، ')]))
-                        ->default(fn () => $plans->firstWhere('id', (int) request()->query('plan'))?->id ?? $plans->firstWhere('is_free', true)?->id)
-                        ->in($plans->pluck('id')->all()),
-                ]),
-            Section::make(__('provider.register.account'))->columns(2)->schema([
-                $this->checkOnBlur($this->getNameFormComponent()->label(__('provider.fields.full_name'))),
-                $this->checkOnBlur($this->getEmailFormComponent()),
-                $this->checkOnBlur(SaudiInput::mobile()->label(__('provider.fields.mobile'))->required()
-                    ->rule(fn () => function (string $attribute, $value, \Closure $fail) {
-                        if ($value && User::withTrashed()->where('phone', OtpService::normalize($value))->exists()) {
-                            $fail(__('provider.register.phone_taken'));
-                        }
-                    })),
-                $this->getPasswordFormComponent(),
-                $this->getPasswordConfirmationFormComponent(),
-            ]),
-            Section::make(__('provider.register.business'))->columns(2)->schema([
-                TextInput::make('name_ar')->label(__('provider.fields.business_name_ar'))->required()->maxLength(150)
-                    ->helperText(__('provider.register.business_name_hint')),
-                TextInput::make('name_en')->label(__('provider.fields.business_name_en'))->maxLength(150),
-                $this->checkOnBlur(TextInput::make('cr_number')->label(__('provider.fields.cr_number'))->rule('digits:10')->required()
-                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric', 'maxlength' => 10])),
-                TextInput::make('legal_name')->label(__('provider.fields.legal_name'))->maxLength(200),
-                $this->checkOnBlur(TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15')
-                    ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric', 'maxlength' => 15])),
-                Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
-                    ->options(fn () => City::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
-                $this->checkOnBlur(TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->rule('url:http,https')->required()->maxLength(500)
-                    ->rule(new GoogleMapsLink)->placeholder('https://maps.app.goo.gl/...')
-                    ->helperText(__('provider.register.maps_url_hint'))->extraInputAttributes(['dir' => 'ltr'])),
-                $this->checkOnBlur(TextInput::make('website')->label(__('provider.register.website_optional'))->url()->rule('url:http,https')->maxLength(200)
-                    ->placeholder('https://')->extraInputAttributes(['dir' => 'ltr'])),
-                CheckboxList::make('sector_ids')->label(__('provider.fields.sectors'))->required()->columns(2)->columnSpanFull()
-                    ->options(fn () => Sector::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id'))
-                    ->helperText(__('provider.register.sectors_hint')),
-            ]),
-            Section::make(__('provider.register.bank'))->columns(3)->collapsible()->schema([
-                TextInput::make('bank_name')->label(__('provider.fields.bank_name'))->maxLength(100),
-                TextInput::make('account_holder')->label(__('provider.fields.account_holder'))->maxLength(150),
-                $this->checkOnBlur(SaudiInput::iban()->label(__('provider.fields.iban'))),
-            ]),
+            Wizard::make([
+                Step::make('account')->label(__('provider.register.account'))->icon('heroicon-o-user')
+                    ->schema([$this->accountSection()]),
+                Step::make('business')->label(__('provider.register.business'))->icon('heroicon-o-building-storefront')
+                    ->schema([$this->businessSection()]),
+                Step::make('plan')->label(__('provider.register.plan_step'))->icon('heroicon-o-paper-airplane')
+                    ->schema([
+                        // The plan is chosen before the account exists (here, or from the website's ?plan= link). A paid
+                        // plan becomes a request that is paid online once the provider is approved; until then: free.
+                        Section::make(__('provider.register.plan'))->description(__('provider.register.plan_hint'))
+                            ->visible($plans->isNotEmpty())
+                            ->schema([
+                                Radio::make('plan_id')->hiddenLabel()->required($plans->isNotEmpty())
+                                    ->options($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->tr('name').' · '.($p->is_free
+                                        ? __('provider.plans.free')
+                                        : Fmt::sar($p->price).' / '.__('provider.plans.for_days', ['days' => $p->duration_days]))]))
+                                    ->descriptions($plans->mapWithKeys(fn (Plan $p) => [$p->id => $p->items
+                                        ->map(fn ($item) => $item->feature->getLabel().($item->value ? ' ('.__('provider.plans.up_to', ['count' => $item->value]).')' : ''))
+                                        ->implode('، ')]))
+                                    ->default(fn () => $plans->firstWhere('id', (int) request()->query('plan'))?->id ?? $plans->firstWhere('is_free', true)?->id)
+                                    ->in($plans->pluck('id')->all()),
+                            ]),
+                        Section::make(__('provider.register.next_title'))->icon('heroicon-o-list-bullet')->schema([
+                            Text::make(__('provider.register.next_1')),
+                            Text::make(__('provider.register.next_2')),
+                            Text::make(__('provider.register.next_3')),
+                            Text::make(__('provider.register.next_4')),
+                        ]),
+                    ]),
+            ])->submitAction(new HtmlString(Blade::render('<x-filament::button type="submit" wire:target="register">{{ $label }}</x-filament::button>', ['label' => __('provider.register.submit')])))
+                ->nextAction(fn (Action $action) => $action->label(__('provider.register.continue')))
+                ->previousAction(fn (Action $action) => $action->label(__('provider.register.back')))
+                ->extraAttributes(['class' => 'farah-signup-wizard']),
+            View::make('filament.provider.register-wizard-style'),
             View::make('filament.keep-draft'),
+        ]);
+    }
+
+    /** The wizard has its own "create account" button on the last step. */
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
+    private function accountSection(): Section
+    {
+        return Section::make(__('provider.register.account'))->columns(2)->schema([
+            $this->checkOnBlur($this->getNameFormComponent()->label(__('provider.fields.full_name'))),
+            $this->checkOnBlur($this->getEmailFormComponent()),
+            $this->checkOnBlur(SaudiInput::mobile()->label(__('provider.fields.mobile'))->required()
+                ->rule(fn () => function (string $attribute, $value, \Closure $fail) {
+                    if ($value && User::withTrashed()->where('phone', OtpService::normalize($value))->exists()) {
+                        $fail(__('provider.register.phone_taken'));
+                    }
+                })),
+            $this->getPasswordFormComponent(),
+            $this->getPasswordConfirmationFormComponent(),
+        ]);
+    }
+
+    private function businessSection(): Section
+    {
+        return Section::make(__('provider.register.business'))->columns(2)->schema([
+            TextInput::make('name_ar')->label(__('provider.fields.business_name_ar'))->required()->maxLength(150)->rule(new ArabicText),
+            TextInput::make('name_en')->label(__('provider.fields.business_name_en'))->maxLength(150),
+            $this->checkOnBlur(TextInput::make('cr_number')->label(__('provider.fields.cr_number'))->rule('digits:10')->required()
+                ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric', 'maxlength' => 10])),
+            TextInput::make('legal_name')->label(__('provider.fields.legal_name'))->maxLength(200),
+            $this->checkOnBlur(TextInput::make('vat_number')->label(__('provider.fields.vat_number'))->rule('digits:15')
+                ->extraInputAttributes(['dir' => 'ltr', 'inputmode' => 'numeric', 'maxlength' => 15])),
+            Select::make('city_id')->label(__('provider.fields.city'))->required()->searchable()
+                ->options(fn () => City::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id')),
+            $this->checkOnBlur(TextInput::make('maps_url')->label(__('provider.fields.maps_url'))->url()->rule('url:http,https')->required()->maxLength(500)
+                ->rule(new GoogleMapsLink)->placeholder('https://maps.app.goo.gl/...')
+                ->extraInputAttributes(['dir' => 'ltr'])),
+            $this->checkOnBlur(TextInput::make('website')->label(__('provider.register.website_optional'))->url()->rule('url:http,https')->maxLength(200)
+                ->placeholder('https://')->extraInputAttributes(['dir' => 'ltr'])),
+            // A searchable multi-select: type to filter, pick as many types as the store offers.
+            Select::make('sector_ids')->label(__('provider.fields.sectors'))->required()->columnSpanFull()
+                ->multiple()->searchable()->preload()
+                ->options(fn () => Sector::where('is_active', true)->orderBy('sort_order')->pluck(Fmt::col('name'), 'id'))
+                ->placeholder(__('provider.register.sectors_placeholder'))
+                ->helperText(__('provider.register.sectors_hint')),
         ]);
     }
 

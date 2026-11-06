@@ -15,6 +15,13 @@ class OrdersBySectorChart extends ChartWidget
 
     protected static bool $isDiscovered = false;
 
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->can('reports.view') || $user?->can('reports.manage') || $user?->can('orders.manage'));
+    }
+
     protected static ?int $sort = 4;
 
     protected ?string $maxHeight = '280px';

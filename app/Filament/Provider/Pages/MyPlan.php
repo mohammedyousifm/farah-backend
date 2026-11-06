@@ -64,13 +64,14 @@ class MyPlan extends Page
             'onboarding' => ProviderAccess::onboarding(),
             'history' => $provider->subscriptions()->with('plan')->latest('id')->limit(10)->get(),
             'canRequest' => static::canRequest(),
+            'approved' => $provider->isApproved(),
         ];
     }
 
     public function requestAction(): Action
     {
         return Action::make('request')
-            ->label(__('provider.plans.choose'))
+            ->label(fn (array $arguments) => __(($arguments['renew'] ?? false) ? 'provider.plans.renew' : 'provider.plans.choose'))
             ->icon('heroicon-o-arrow-up-circle')
             ->requiresConfirmation()
             ->modalHeading(fn (array $arguments) => __('provider.plans.confirm_heading', ['plan' => Plan::find($arguments['plan'] ?? 0)?->tr('name')]))
@@ -80,6 +81,25 @@ class MyPlan extends Page
                 try {
                     app(SubscriptionService::class)->request(ProviderAccess::provider(), Plan::active()->findOrFail($arguments['plan'] ?? 0), auth()->user());
                     Notification::make()->success()->title(__('provider.plans.requested'))->send();
+                } catch (BusinessException $e) {
+                    Notification::make()->danger()->title($e->getMessage())->send();
+                }
+            });
+    }
+
+    /** Pays the waiting plan online (after approval): opens the gateway's checkout page. */
+    public function payAction(): Action
+    {
+        return Action::make('pay')
+            ->label(__('provider.plans.pay_now'))
+            ->icon('heroicon-o-credit-card')
+            ->visible(fn () => static::canRequest() && ProviderAccess::provider()->isApproved())
+            ->action(function () {
+                $pending = ProviderAccess::provider()->subscriptions()->where('status', SubscriptionStatus::Pending)->latest('id')->first();
+                try {
+                    $payment = app(SubscriptionService::class)->checkout($pending ?? throw new BusinessException(__('api.plans.not_payable')), auth()->user(), static::getUrl());
+
+                    return redirect()->away($payment->checkout_url);
                 } catch (BusinessException $e) {
                     Notification::make()->danger()->title($e->getMessage())->send();
                 }

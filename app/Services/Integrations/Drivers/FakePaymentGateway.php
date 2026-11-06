@@ -3,7 +3,9 @@
 namespace App\Services\Integrations\Drivers;
 
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Services\Integrations\Contracts\PaymentGateway;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 /**
@@ -17,8 +19,15 @@ class FakePaymentGateway implements PaymentGateway
     {
         return [
             'id' => 'fake_'.Str::lower(Str::random(16)),
-            'checkout_url' => url('payments/fake/'.$payment->reference), // web route "payments.fake"
+            // Signed and short-lived: knowing a payment reference is not enough to open its checkout page.
+            'checkout_url' => URL::temporarySignedRoute('payments.fake', self::linkExpiry(), ['reference' => $payment->reference]),
         ];
+    }
+
+    /** The link outlives the payment window a little; the page itself refuses orders whose window ended. */
+    public static function linkExpiry(): \DateTimeInterface
+    {
+        return now()->addMinutes((int) Setting::get('order_payment_timeout_minutes') + 5);
     }
 
     public function refund(Payment $payment, float $amount, string $reason = ''): array

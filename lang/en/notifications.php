@@ -38,6 +38,8 @@ return [
     'admin_complaint_new' => ['title' => 'New complaint', 'body' => 'Complaint :number: :subject'],
     'campaign' => ['title' => ':title', 'body' => ':body'],
     'subscription_requested' => ['title' => 'New plan request', 'body' => ':provider asked for the :plan plan. Activate it once paid.'],
+    'subscription_payment_unmatched' => ['title' => 'Plan payment needs a refund', 'body' => 'A payment of :amount SAR (:reference) arrived for a plan request that is no longer waiting. Check it and refund it.'],
+    'subscription_expiring' => ['title' => 'Your plan ends soon', 'body' => 'The :plan plan ends on :date. Renew it from "My plan" so its features do not stop.'],
     'subscription_activated' => ['title' => 'Your plan is active', 'body' => 'The :plan plan runs until :date.'],
     'subscription_rejected' => ['title' => 'Plan not activated', 'body' => 'Your :plan request. Reason: :reason'],
     'subscription_cancelled' => ['title' => 'Your plan was stopped', 'body' => 'The :plan plan was stopped. Reason: :reason'],

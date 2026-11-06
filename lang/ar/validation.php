@@ -156,6 +156,7 @@ return [
     'uploaded' => 'تعذر رفع :attribute، حاول مرة أخرى.',
     'uppercase' => 'يجب أن يكون :attribute بأحرف كبيرة.',
     'url' => 'يجب أن يكون :attribute رابطاً صحيحاً.',
+    'arabic_text' => 'اكتب الاسم العربي بحروف عربية.',
     'ulid' => 'يجب أن يكون :attribute معرّف ULID صحيحاً.',
     'uuid' => 'يجب أن يكون :attribute معرّف UUID صحيحاً.',
 

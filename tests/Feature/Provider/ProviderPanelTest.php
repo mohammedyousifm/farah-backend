@@ -236,12 +236,14 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $this->get($urls['dashboard'])
             ->assertSee(__('provider.onboarding.title'))
             ->assertSee(__('provider.banner.pending.title'))
-            ->assertSee(__('provider.fields.iban'))
+            ->assertSee(__('provider.onboarding.step_documents'))
+            ->assertSee(__('enums.document_type.commercial_register'))
             ->assertDontSee('provider.onboarding.');
 
         $missing = OnboardingWidget::missingProfileFields($this->provider->fresh());
-        $this->assertContains(__('provider.fields.iban'), $missing);
-        $this->assertSame([], OnboardingWidget::documentChecklist($this->provider)); // nothing is asked up front
+        $this->assertNotContains(__('provider.fields.iban'), $missing); // asked at the first payout, not for the review
+        $this->assertSame([], OnboardingWidget::documentChecklist($this->provider)); // no extra request
+        $this->assertSame('todo', OnboardingWidget::requiredDocuments($this->provider)[0]['state']); // the commercial register
     }
 
     public function test_suspended_provider_is_read_only(): void
@@ -291,10 +293,13 @@ class ProviderPanelTest extends ProviderPanelTestCase
         $this->assertSame('https://maps.app.goo.gl/AbCdEf123456', $provider->maps_url);
         $this->assertTrue($provider->members()->where('user_id', $user->id)->where('role', 'owner')->exists());
         $this->assertAuthenticatedAs($user, 'provider');
-        $this->get(Dashboard::getUrl(tenant: $provider))->assertOk();
+        $this->assertFalse($user->hasVerifiedEmail());
+        $this->get(Dashboard::getUrl(tenant: $provider))->assertRedirect();
+        $user->markEmailAsVerified();
+        $this->actingAs($user->fresh(), 'provider')->get(Dashboard::getUrl(tenant: $provider))->assertOk();
     }
 
-    public function test_registration_checks_mobile_password_and_iban_and_mistakes_cost_no_try(): void
+    public function test_registration_checks_mobile_and_password_and_mistakes_cost_no_try(): void
     {
         Filament::setCurrentPanel(Filament::getPanel('provider'));
 
@@ -302,7 +307,7 @@ class ProviderPanelTest extends ProviderPanelTestCase
             'name' => 'New Owner', 'email' => 'strict.owner@example.com', 'phone' => '05512345',
             'password' => 'password1', 'passwordConfirmation' => 'password1',
             'name_ar' => 'منشأة', 'cr_number' => '1010101010', 'maps_url' => 'https://maps.app.goo.gl/AbCdEf123456',
-            'city_id' => City::first()->id, 'sector_ids' => [Sector::first()->id], 'iban' => 'SA0380000000608010167518',
+            'city_id' => City::first()->id, 'sector_ids' => [Sector::first()->id],
         ];
         $page = Livewire::test(RegisterProvider::class);
 
@@ -310,18 +315,19 @@ class ProviderPanelTest extends ProviderPanelTestCase
         foreach (range(1, 5) as $ignored) {
             $page->fillForm($form)->call('register')->assertHasFormErrors(['phone', 'password']);
         }
-        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026'])
-            ->call('register')->assertHasFormErrors(['iban']);
         $this->assertSame(0, User::where('email', 'strict.owner@example.com')->count());
 
-        // A copied IBAN with spaces and lower case, and a strong password, go through.
-        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026',
-            'iban' => 'sa03 8000 0000 6080 1016 7519'])
+        // A Latin text in the Arabic name is refused (FARAH-DATA-001).
+        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026', 'name_ar' => 'Xena Cochran'])
+            ->call('register')->assertHasFormErrors(['name_ar']);
+
+        // A strong password and a valid mobile go through; no bank details are asked at sign-up.
+        $page->fillForm([...$form, 'phone' => '0551234560', 'password' => 'Secret#2026', 'passwordConfirmation' => 'Secret#2026'])
             ->call('register')->assertHasNoFormErrors();
 
         $user = User::where('email', 'strict.owner@example.com')->firstOrFail();
         $this->assertSame('+966551234560', $user->phone);
-        $this->assertSame('SA0380000000608010167519', $user->ownedProvider->iban);
+        $this->assertNull($user->ownedProvider->iban);
     }
 
     public function test_the_platform_asks_for_a_document_and_the_provider_sees_exactly_that(): void

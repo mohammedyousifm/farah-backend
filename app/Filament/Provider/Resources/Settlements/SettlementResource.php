@@ -68,7 +68,7 @@ class SettlementResource extends Resource
                 TextEntry::make('payment_reference')->label(__('provider.fields.payment_reference'))->placeholder('-')->copyable(),
                 TextEntry::make('receipt_path')->label(__('provider.fields.receipt'))->placeholder('-')
                     ->formatStateUsing(fn () => __('provider.actions.open_file'))
-                    ->url(fn (Settlement $r) => $r->receiptUrl(), true)
+                    ->url(fn (Settlement $r) => $r->panelReceiptUrl(), true)
                     ->color('primary'),
                 TextEntry::make('notes')->label(__('provider.fields.notes'))->placeholder('-')->columnSpan(2),
             ]),

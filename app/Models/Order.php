@@ -141,6 +141,17 @@ class Order extends Model
         return in_array($this->status->value, self::PAID_STATUSES, true);
     }
 
+    /**
+     * Still waiting for payment but the payment window has ended. The server's expires_at is the
+     * only source of truth: the order is released even if the expiry job has not run yet.
+     */
+    public function holdExpired(): bool
+    {
+        return $this->status === OrderStatus::PendingPayment
+            && $this->expires_at !== null
+            && $this->expires_at->isPast();
+    }
+
     public function refundableAmount(): float
     {
         return round($this->total - $this->refunded_amount, 2);

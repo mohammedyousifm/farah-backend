@@ -14,6 +14,13 @@ class SalesChart extends ChartWidget
 
     protected static bool $isDiscovered = false;
 
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user?->can('reports.view') || $user?->can('reports.manage') || $user?->can('orders.manage'));
+    }
+
     protected static ?int $sort = 3;
 
     protected ?string $maxHeight = '280px';

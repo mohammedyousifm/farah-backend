@@ -7,10 +7,11 @@ use App\Filament\NavGroup;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Support\Brand;
+use App\Filament\Support\InitialsAvatar;
 use App\Http\Middleware\SetAdminLocale;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\Email\EmailAuthentication;
-use Filament\FontProviders\GoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -57,7 +58,7 @@ class AdminPanelProvider extends PanelProvider
             // Two-step login: each person switches on a code by SMS, by e-mail, or both, from "My account".
             ->multiFactorAuthentication([SmsAuthentication::make(), EmailAuthentication::make()->generateCodesUsing(SmsAuthentication::make()->generateCode(...))])
             // The bell: everything this person was notified about, refreshed every half minute.
-            ->databaseNotifications()
+            ->databaseNotifications(isLazy: false) // the bell renders with the page: one Livewire request less per page
             ->databaseNotificationsPolling('30s')
             // Leaving a half-filled form asks first.
             ->unsavedChangesAlerts()
@@ -77,7 +78,8 @@ class AdminPanelProvider extends PanelProvider
                 'success' => Color::Emerald,
                 'danger' => Color::Rose,
             ])
-            ->font('Almarai', provider: GoogleFontProvider::class)
+            ->font('Almarai', url: asset('fonts/almarai/almarai.css'), provider: LocalFontProvider::class) // self-hosted: no Google round trips
+            ->defaultAvatarProvider(InitialsAvatar::class)
             ->sidebarCollapsibleOnDesktop()
             ->maxContentWidth('full')
             // Built with lazy labels: NavigationGroup::fromEnum() would translate once at boot,

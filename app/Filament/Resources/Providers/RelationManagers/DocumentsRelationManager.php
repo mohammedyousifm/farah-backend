@@ -115,7 +115,7 @@ class DocumentsRelationManager extends RelationManager
             ])
             ->recordActions([
                 Action::make('file')->label(__('admin.actions.preview'))->icon('heroicon-o-eye')->color('gray')
-                    ->url(fn (ProviderDocument $r) => $r->fileUrl(), true),
+                    ->url(fn (ProviderDocument $r) => $r->panelUrl(), true),
                 Action::make('approve')->label(__('admin.actions.approve'))->icon('heroicon-o-check-circle')->color('success')
                     ->visible(fn (ProviderDocument $r) => $r->status !== DocumentStatus::Approved && Act::can('documents.manage'))
                     ->requiresConfirmation()
