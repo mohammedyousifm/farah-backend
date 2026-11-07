@@ -93,14 +93,13 @@ class QaFixesTest extends ProviderPanelTestCase
         }
     }
 
-    public function test_signed_links_survive_the_hosting_proxy(): void
+    public function test_a_client_cannot_fake_its_address_with_forwarded_headers(): void
     {
-        // The proxy ends HTTPS and talks plain http to PHP; X-Forwarded-Proto tells Laravel the real scheme.
-        $request = Request::create('http://farah.test/up', 'GET', server: ['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_PROTO' => 'https']);
-        $response = $this->app->handle($request);
+        // No TRUSTED_PROXIES: X-Forwarded-For from the caller is ignored, so per-IP limits cannot be dodged.
+        $request = Request::create('http://farah.test/up', 'GET', server: ['REMOTE_ADDR' => '10.0.0.1', 'HTTP_X_FORWARDED_FOR' => '203.0.113.9']);
+        $this->app->handle($request);
 
-        $this->assertSame(200, $response->getStatusCode());
-        $this->assertTrue($this->app['request']->isSecure(), 'forwarded https must be trusted');
+        $this->assertSame('10.0.0.1', $this->app['request']->ip());
     }
 
     // FARAH-DATA-001 ----------------------------------------------------------------------------------------

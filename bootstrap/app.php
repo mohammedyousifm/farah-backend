@@ -25,10 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Hosting puts a proxy in front of PHP that ends HTTPS. Without trusting its X-Forwarded-* headers every
-        // request looks like plain http, so links signed for https (documents, invoices, payment pages) failed
-        // their signature with 403. TRUSTED_PROXIES narrows it to given addresses; '*' = the host's own proxy.
-        $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*'));
+        // X-Forwarded-* headers are trusted only from the proxies named in TRUSTED_PROXIES (comma list, or '*').
+        // Off by default: the host already hands PHP the real client address and HTTPS=on, and trusting every
+        // sender would let anyone fake X-Forwarded-For and dodge the per-IP limits (sign-in codes, guests).
+        if ($trusted = env('TRUSTED_PROXIES')) {
+            $middleware->trustProxies(at: $trusted === '*' ? '*' : array_map('trim', explode(',', $trusted)));
+        }
 
         // --- API (owned by the API workstream) ---
         $middleware->append([RequestId::class, SecurityHeaders::class]);

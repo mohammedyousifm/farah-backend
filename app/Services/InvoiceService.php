@@ -52,17 +52,33 @@ class InvoiceService
             // The invoice year is the year on the business clock (an order paid at 01:00 on 1 January is next year's).
             $year = (int) $issuedAt->copy()->setTimezone(AvailabilityService::timezone())->format('Y');
 
-            DB::table('invoice_sequences')->insertOrIgnore(['year' => $year, 'last' => 0]);
-            $next = (int) DB::table('invoice_sequences')->where('year', $year)->lockForUpdate()->value('last') + 1;
-            DB::table('invoice_sequences')->where('year', $year)->update(['last' => $next]);
+            $next = $this->nextNumber($year);
 
             $order->forceFill([
                 'invoice_number' => sprintf('INV-%d-%06d', $year, $next),
                 'invoice_issued_at' => $issuedAt,
             ])->save();
-        });
+        }, attempts: 3);
 
         return $order;
+    }
+
+    /**
+     * The year's next invoice number, taken in one statement that locks the row for writing straight away.
+     * (Reading it with insertOrIgnore + SELECT ... FOR UPDATE took a shared lock first; two payments confirmed
+     * at the same moment then waited on each other and MySQL killed one: a deadlock, a 500 on the webhook and
+     * a paid order left unconfirmed. Found by the load test.)
+     */
+    private function nextNumber(int $year): int
+    {
+        $bump = fn () => DB::update('UPDATE invoice_sequences SET `last` = LAST_INSERT_ID(`last` + 1) WHERE `year` = ?', [$year]);
+
+        if ($bump() === 0) {
+            DB::table('invoice_sequences')->insertOrIgnore(['year' => $year, 'last' => 0]); // first invoice of the year
+            $bump();
+        }
+
+        return (int) DB::selectOne('SELECT LAST_INSERT_ID() AS n')->n;
     }
 
     /** Short form for the list. */

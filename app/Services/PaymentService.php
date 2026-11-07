@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\SubscriptionStatus;
 use App\Exceptions\BusinessException;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\ProviderSubscription;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Notifications\SystemNotification;
@@ -92,7 +95,14 @@ class PaymentService
                 'signature_valid' => true,
             ]);
         } catch (UniqueConstraintViolationException) {
-            return false; // already received
+            // Received before. Done → acknowledge only. Failed half-way (e.g. a database conflict, answered with
+            // 500) → this is the gateway's retry and it must be applied now, or a paid order stays unconfirmed.
+            // markPaid / markFailed lock the payment row, so a retry racing the first attempt changes nothing twice.
+            $event = WebhookEvent::where('gateway', $gateway)->where('event_id', $data['event_id'])->first();
+            if (! $event || $event->processed_at) {
+                return false;
+            }
+            $event->update(['error' => null]);
         }
 
         try {
@@ -119,8 +129,13 @@ class PaymentService
         $claimed = DB::transaction(function () use ($payment, $gatewayId, $method) {
             $locked = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
 
-            if (in_array($locked->status, [PaymentStatus::Paid, PaymentStatus::Refunded, PaymentStatus::PartiallyRefunded], true)) {
-                return false; // already processed
+            if (in_array($locked->status, [PaymentStatus::Refunded, PaymentStatus::PartiallyRefunded], true)) {
+                return false; // money already went back: nothing to confirm
+            }
+            if ($locked->status === PaymentStatus::Paid) {
+                // Paid before. If confirming its orders failed that time (the webhook answered 500), this retry
+                // finishes it; OrderService::confirm leaves an order that is already confirmed as it is.
+                return 'retry';
             }
 
             $locked->update([
@@ -134,11 +149,23 @@ class PaymentService
             return true;
         });
 
-        if (! $claimed) {
+        if ($claimed === false) {
             return;
         }
 
         $payment->refresh();
+
+        if ($claimed === 'retry') {
+            $pending = Order::whereIn('id', collect($payment->payload['order_ids'] ?? [])->merge(Order::where('payment_id', $payment->id)->pluck('id')))
+                // Expired too: the hold may have run out while the first attempt failed. confirm() takes the
+                // table again if it is still free, otherwise the payment is refunded (never kept without a booking).
+                ->whereIn('status', [OrderStatus::PendingPayment, OrderStatus::Expired])->exists();
+            $planWaiting = isset($payment->payload['subscription_id'])
+                && ProviderSubscription::whereKey($payment->payload['subscription_id'])->where('status', SubscriptionStatus::Pending)->exists();
+            if (! $pending && ! $planWaiting) {
+                return; // everything was done the first time
+            }
+        }
 
         // A provider paying for a plan: no orders, the plan starts.
         if (isset($payment->payload['subscription_id'])) {
