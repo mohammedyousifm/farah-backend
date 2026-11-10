@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -44,6 +45,10 @@ use Illuminate\Support\Carbon;
  */
 class Review extends Model
 {
+    public const PUBLISHED = 'published';
+
+    public const HIDDEN = 'hidden';
+
     protected $guarded = ['id'];
 
     protected function casts(): array
@@ -64,13 +69,24 @@ class Review extends Model
             if (! $target) {
                 continue;
             }
-            $stats = $target->reviews()->where('status', 'published')
+            $stats = $target->reviews()->published()
                 ->selectRaw('AVG(rating) as avg_rating, COUNT(*) as cnt')->toBase()->first();
             $target->forceFill([
                 'rating_avg' => round((float) $stats->avg_rating, 2),
                 'rating_count' => (int) $stats->cnt,
             ])->saveQuietly();
         }
+    }
+
+    /**
+     * Reviews customers may see. Every customer-facing list, count and average
+     * must go through this scope, so a review hidden by moderation never leaks.
+     *
+     * @param  Builder<Review>  $query
+     */
+    public function scopePublished(Builder $query): void
+    {
+        $query->where('status', self::PUBLISHED);
     }
 
     public function user(): BelongsTo

@@ -4,6 +4,9 @@ namespace App\Providers\Filament;
 
 use App\Auth\SmsAuthentication;
 use App\Filament\Pages\Auth\EditProfile;
+use App\Filament\Pages\Auth\Login;
+use App\Filament\Pages\Auth\RequestPasswordReset;
+use App\Filament\Pages\Auth\ResetPassword;
 use App\Filament\Provider\Pages\Auth\RegisterProvider;
 use App\Filament\Provider\Pages\Dashboard;
 use App\Filament\Provider\Pages\EditProviderProfile;
@@ -46,9 +49,10 @@ class ProviderPanelProvider extends PanelProvider
         return $panel
             ->id('provider')
             ->path('provider')
-            ->login()
+            ->login(Login::class) // the typed password is not echoed back to the browser (AUTH-ADMIN-001)
             ->registration(RegisterProvider::class)
-            ->passwordReset()
+            // Same answer for every address, registered or not (AUTH-ADMIN-005); new passwords not echoed back.
+            ->passwordReset(RequestPasswordReset::class, ResetPassword::class)
             // A new provider confirms the e-mail address before the dashboard opens (link sent through the queue).
             ->emailVerification()
             // "My account" in the user menu: the signed-in person's own name, email and password.

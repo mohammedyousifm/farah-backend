@@ -4,11 +4,15 @@ namespace App\Providers\Filament;
 
 use App\Auth\SmsAuthentication;
 use App\Filament\NavGroup;
+use App\Filament\Pages\Auth\AdminLogin;
 use App\Filament\Pages\Auth\EditProfile;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Support\Brand;
 use App\Filament\Support\InitialsAvatar;
+use App\Http\Controllers\AdminNotificationController;
+use App\Http\Middleware\EnforceSessionTimeout;
 use App\Http\Middleware\SetAdminLocale;
+use App\Livewire\AdminNotifications;
 use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\Email\EmailAuthentication;
 use Filament\FontProviders\LocalFontProvider;
@@ -27,6 +31,7 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -52,14 +57,16 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(AdminLogin::class) // no "Remember me"; the typed password is not echoed back (AUTH-ADMIN-001/003)
             // "My account" in the user menu: the signed-in admin's own name, email and password.
             ->profile(EditProfile::class, isSimple: false)
             // Two-step login: each person switches on a code by SMS, by e-mail, or both, from "My account".
             ->multiFactorAuthentication([SmsAuthentication::make(), EmailAuthentication::make()->generateCodesUsing(SmsAuthentication::make()->generateCode(...))])
-            // The bell: everything this person was notified about, refreshed every half minute.
-            ->databaseNotifications(isLazy: false) // the bell renders with the page: one Livewire request less per page
-            ->databaseNotificationsPolling('30s')
+            // The bell: everything this person was notified about. New rows and the badge refresh every 15 s
+            // without a reload; each row has an "Open" button to its record; Clear / × archive (AdminNotifications).
+            ->databaseNotifications(livewireComponent: AdminNotifications::class, isLazy: false) // renders with the page: one Livewire request less
+            ->databaseNotificationsPolling('15s')
+            ->authenticatedRoutes(fn () => Route::get('notifications/{id}/open', [AdminNotificationController::class, 'open'])->name('notifications.open'))
             // Leaving a half-filled form asks first.
             ->unsavedChangesAlerts()
             // SPA navigation: pages swap in place (wire:navigate) instead of full reloads.
@@ -108,6 +115,8 @@ class AdminPanelProvider extends PanelProvider
                 StartSession::class,
                 SetAdminLocale::class,
                 AuthenticateSession::class,
+                // Idle (30 min) and absolute (12 h) limits, checked on the server; background polling is not activity.
+                EnforceSessionTimeout::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
@@ -116,7 +125,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Only the locale needs to re-run on Livewire updates. Making the whole
             // session stack persistent restarts the session and logs the admin out.
-            ->persistentMiddleware([SetAdminLocale::class])
+            ->persistentMiddleware([SetAdminLocale::class, EnforceSessionTimeout::class])
             ->authMiddleware([
                 Authenticate::class,
             ]);

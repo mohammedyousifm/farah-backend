@@ -75,6 +75,15 @@ return [
         'dedupe_seconds' => (int) env('API_DEDUPE_SECONDS', 5),
     ],
 
+    // Dashboards also send the stricter target policy (no 'unsafe-inline') as Report-Only; reports go to logs/csp-*.log.
+    'csp' => ['report_only' => (bool) env('CSP_REPORT_ONLY', true)],
+
+    // Admin panel session limits, enforced on the server (EnforceSessionTimeout). Background polling is not activity.
+    'admin_session' => [
+        'idle_minutes' => (int) env('ADMIN_IDLE_MINUTES', 30),
+        'absolute_minutes' => (int) env('ADMIN_SESSION_MAX_MINUTES', 720),
+    ],
+
     'integrations' => [
         'payment' => [
             'driver' => env('PAYMENT_DRIVER', 'fake'),
@@ -84,6 +93,9 @@ return [
         'accounting' => ['driver' => env('ACCOUNTING_DRIVER', 'null')],
         // 'log' writes pushes to the log; 'fcm' sends them through Firebase using the service-account file.
         'push' => ['driver' => env('PUSH_DRIVER', 'log'), 'credentials' => env('FIREBASE_CREDENTIALS')],
+        // Integration Logs may offer "open link" only for https URLs on these hosts (plus APP_URL's own host).
+        // Comma-separated, e.g. the live payment gateway's checkout host once one is chosen.
+        'link_hosts' => array_values(array_filter(array_map('trim', explode(',', (string) env('INTEGRATION_LINK_HOSTS', ''))))),
     ],
 
     /*

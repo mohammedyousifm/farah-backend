@@ -93,12 +93,12 @@ class VenueController extends Controller
     public function reviews(Request $request, int $venue): AnonymousResourceCollection
     {
         $model = Venue::visible()->findOrFail($venue);
-        $reviews = $model->reviews()->where('status', 'published')->with('user')->latest()->paginate(20);
+        $reviews = $model->reviews()->published()->with('user')->latest()->paginate(20);
 
         return ReviewResource::collection($reviews)->additional(['meta' => [
             'rating_avg' => $model->rating_avg,
             'rating_count' => $model->rating_count,
-            'distribution' => $model->reviews()->where('status', 'published')
+            'distribution' => $model->reviews()->published()
                 ->selectRaw('rating, COUNT(*) as total')->groupBy('rating')->pluck('total', 'rating'),
         ]]);
     }

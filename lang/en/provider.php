@@ -614,4 +614,7 @@ return [
         'pay_now' => 'Pay now',
         'renew' => 'Renew plan',
     ],
+    'password_reset' => [
+        'sent_generic' => 'If this address has an account with us, a password reset link is on its way.',
+    ],
 ];

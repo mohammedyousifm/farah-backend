@@ -3,6 +3,7 @@
 namespace App\Services\Integrations;
 
 use App\Models\IntegrationLog;
+use App\Support\Redactor;
 
 class IntegrationLogger
 {
@@ -34,8 +35,9 @@ class IntegrationLogger
         IntegrationLog::create([
             'service' => $service,
             'action' => $action,
-            'request' => $request,
-            'response' => $response,
+            // Secrets never reach the log table (the admin page masks older rows as well).
+            'request' => Redactor::redact($request),
+            'response' => Redactor::redact($response),
             'success' => $success,
             'duration_ms' => (int) ((microtime(true) - $started) * 1000),
         ]);

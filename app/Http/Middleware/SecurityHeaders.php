@@ -17,12 +17,18 @@ class SecurityHeaders
     public function handle(Request $request, Closure $next): Response
     {
         $panel = $request->is('admin*', 'provider*', 'livewire*');
-        $nonce = $panel ? null : Vite::useCspNonce();
+        // Panels get a nonce too: Filament and Livewire put it on the scripts they load, which the stricter
+        // report-only policy below needs. The enforced panel policy does not list it (a nonce would switch off
+        // 'unsafe-inline', which Filament's own inline scripts still need).
+        $nonce = Vite::useCspNonce();
 
         $response = $next($request);
 
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
-        $response->headers->set('Content-Security-Policy', self::contentPolicy($nonce));
+        $response->headers->set('Content-Security-Policy', $panel ? self::panelPolicy() : self::contentPolicy($nonce));
+        if ($panel && config('farah.csp.report_only')) {
+            $response->headers->set('Content-Security-Policy-Report-Only', self::panelTargetPolicy($nonce));
+        }
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
@@ -53,14 +59,52 @@ class SecurityHeaders
         return $response;
     }
 
-    /** Public pages run only our own files and scripts carrying this request's nonce. Filament needs inline code and eval. */
-    private static function contentPolicy(?string $nonce): string
+    /** Public pages run only our own files and scripts carrying this request's nonce. */
+    private static function contentPolicy(string $nonce): string
     {
-        $scripts = $nonce ? "script-src 'self' 'nonce-{$nonce}'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
-
         return implode('; ', [
             "default-src 'self'",
-            $scripts,
+            "script-src 'self' 'nonce-{$nonce}'",
+            ...self::common(),
+        ]);
+    }
+
+    /**
+     * Enforced on the dashboards (AUTH-ADMIN-002). Documented exception: Filament 5 prints a dozen inline
+     * <script> blocks without a nonce and Alpine/Livewire evaluate x-on / wire: expressions with eval, so
+     * 'unsafe-inline' and 'unsafe-eval' stay for <script>. What is closed: inline event-handler attributes
+     * (onerror=, onclick= ..., the usual way injected HTML runs code) via script-src-attr 'none', plugins,
+     * <base> hijacking, foreign form targets and framing by other sites.
+     */
+    private static function panelPolicy(): string
+    {
+        return implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "script-src-attr 'none'",
+            ...self::common(),
+        ]);
+    }
+
+    /**
+     * The policy the dashboards are moving to, sent as Report-Only: nothing is blocked, the browser only
+     * reports what would be (to /csp-report, written to storage/logs/csp-*.log). No 'unsafe-inline'.
+     */
+    private static function panelTargetPolicy(string $nonce): string
+    {
+        return implode('; ', [
+            "default-src 'self'",
+            "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval'",
+            "script-src-attr 'none'",
+            ...self::common(),
+            'report-uri '.route('csp.report', absolute: false),
+        ]);
+    }
+
+    /** @return array<int, string> */
+    private static function common(): array
+    {
+        return [
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "font-src 'self' data: https://fonts.gstatic.com",
             "img-src 'self' data: blob: https:",
@@ -70,6 +114,6 @@ class SecurityHeaders
             "base-uri 'self'",
             "form-action 'self'",
             "frame-ancestors 'self'",
-        ]);
+        ];
     }
 }

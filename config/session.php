@@ -34,7 +34,8 @@ return [
 
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
 
-    'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
+    // Dashboards: without "Remember me" the session ends when the browser closes (AUTH-ADMIN-003).
+    'expire_on_close' => (bool) env('SESSION_EXPIRE_ON_CLOSE', true),
 
     /*
     |--------------------------------------------------------------------------

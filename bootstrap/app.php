@@ -41,7 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         // Fake payment gateway form posts from a standalone page.
         // The phone scanner page stays open for a whole shift; its long random link is the key.
-        $middleware->preventRequestForgery(except: ['payments/fake/*', 'scan/*']);
+        $middleware->preventRequestForgery(except: ['payments/fake/*', 'scan/*', 'csp-report']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

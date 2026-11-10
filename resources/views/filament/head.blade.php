@@ -83,6 +83,30 @@
     .fi-simple-main { box-shadow: 0 1px 2px rgba(16, 12, 24, .04), 0 12px 32px -12px rgba(16, 12, 24, .12) !important; border: 1px solid var(--farah-line); }
 
     .farah-json { font-size: .75rem; white-space: pre-wrap; word-break: break-word; direction: ltr; text-align: left; }
+    /* Payload viewer (Integration Logs): readable rows + raw JSON. Payload text stays left-to-right in both languages. */
+    .fj { min-width: 0; }
+    .fj-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; }
+    .fj-tabs { display: inline-flex; padding: 2px; border: 1px solid var(--farah-line); border-radius: .5rem; background: var(--farah-canvas); }
+    .fj-tabs button { padding: .25rem .75rem; border-radius: .375rem; font-size: .75rem; font-weight: 700; color: var(--farah-ink-soft); }
+    .fj-tabs button.is-on { background: var(--farah-surface); color: var(--farah-ink); box-shadow: 0 1px 2px rgba(16, 12, 24, .08); }
+    .fj-tools, .fj-acts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: .375rem; }
+    .fj-acts { margin-inline-start: .5rem; }
+    .fj-btn { padding: .125rem .5rem; border: 1px solid var(--farah-line); border-radius: .375rem; font-size: .7rem; font-weight: 700; color: var(--farah-ink-soft); background: var(--farah-surface); white-space: nowrap; }
+    .fj-btn:hover { color: var(--primary-600, #B21FD1); border-color: currentColor; }
+    .fj-copied { font-size: .7rem; font-weight: 700; color: rgb(5, 150, 105); }
+    .fj-note, .fj-empty, .fj-sum { font-size: .75rem; color: var(--farah-ink-muted); }
+    .fj-rows { margin: 0; direction: ltr; text-align: left; font-size: .8rem; }
+    .fj-row { display: grid; grid-template-columns: minmax(6rem, 30%) minmax(0, 1fr); gap: .75rem; padding: .375rem 0; border-bottom: 1px solid var(--farah-line); }
+    .fj-row:last-child { border-bottom: 0; }
+    .fj-row.fj-nested { display: block; }
+    .fj-row.fj-nested summary { display: flex; gap: .75rem; cursor: pointer; list-style: revert; }
+    .fj-row.fj-nested dd { margin: .25rem 0 0; padding-inline-start: 1rem; border-inline-start: 2px solid var(--farah-line); }
+    .fj-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; color: var(--farah-ink-soft); overflow-wrap: anywhere; }
+    .fj-row > dd { margin: 0; min-width: 0; }
+    .fj-val { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; word-break: break-word; }
+    .fj-raw { margin: 0; padding: .75rem; max-height: 32rem; overflow: auto; border-radius: .5rem; background: var(--farah-canvas); border: 1px solid var(--farah-line); }
+    .fj-k { color: #7C3AED; } .fj-s { color: #047857; } .fj-n { color: #B45309; } .fj-b { color: #BE185D; font-weight: 700; }
+    .dark .fj-k { color: #C4B5FD; } .dark .fj-s { color: #6EE7B7; } .dark .fj-n { color: #FCD34D; } .dark .fj-b { color: #F9A8D4; }
     .farah-diff td { vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid var(--farah-line); }
 
     /* Big numbers stay on one line ("5,440.00 SAR" used to break in two). */

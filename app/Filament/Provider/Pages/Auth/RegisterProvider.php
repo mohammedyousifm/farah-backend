@@ -244,6 +244,10 @@ class RegisterProvider extends Register
 
         session()->regenerate();
 
+        // AUTH-ADMIN-001: the reply to the final step must not carry the new password back to the browser.
+        $this->data['password'] = null;
+        $this->data['passwordConfirmation'] = null;
+
         return app(RegistrationResponse::class);
     }
 

@@ -17,7 +17,7 @@ class ReviewController extends ProviderController
         $provider = $this->provider($request);
 
         $reviews = $provider->reviews()
-            ->where('status', 'published')
+            ->published()
             ->with(['user', 'venue'])
             ->when($request->integer('venue_id'), fn ($q, $id) => $q->where('venue_id', $id))
             ->when($request->integer('rating'), fn ($q, $r) => $q->where('rating', $r))
@@ -33,7 +33,7 @@ class ReviewController extends ProviderController
 
     public function reply(ReviewReplyRequest $request, int $review, ReviewModerationService $reviews): JsonResponse
     {
-        $model = $reviews->reply($this->provider($request)->reviews()->findOrFail($review), (string) $request->reply);
+        $model = $reviews->reply($this->provider($request)->reviews()->published()->findOrFail($review), (string) $request->reply);
 
         return response()->json(['message' => __('api.reviews.replied'), 'data' => new ReviewResource($model->fresh(['user', 'venue']))]);
     }

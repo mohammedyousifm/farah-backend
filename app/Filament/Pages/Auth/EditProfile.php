@@ -73,4 +73,19 @@ class EditProfile extends BaseEditProfile
 
         return $data;
     }
+
+    /**
+     * AUTH-ADMIN-001: Filament empties the new password after a successful save only. Here the current and new
+     * passwords are emptied after every save, also when it is refused, so the reply never carries them back.
+     */
+    public function save(): void
+    {
+        try {
+            parent::save();
+        } finally {
+            $this->data['password'] = null;
+            $this->data['passwordConfirmation'] = null;
+            $this->data['currentPassword'] = null;
+        }
+    }
 }

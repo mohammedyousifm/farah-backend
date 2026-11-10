@@ -44,6 +44,11 @@ class ReviewModerationService
     /** The provider answers a review (or edits its answer); the customer is told. Used by the provider app and panel. */
     public function reply(Review $review, string $reply): Review
     {
+        // A hidden review is off the customer side: no public reply, and no "your review got a reply" notice about it.
+        if ($review->status !== Review::PUBLISHED) {
+            throw new BusinessException(__('api.reviews.hidden'), 'review_hidden', 404);
+        }
+
         $review->update(['provider_reply' => $reply, 'replied_at' => now()]);
 
         if ($review->user) {

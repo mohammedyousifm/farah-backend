@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CspReportController;
 use App\Http\Controllers\FakePaymentController;
 use App\Http\Controllers\InvoicePdfController;
 use App\Http\Controllers\LandingController;
@@ -15,6 +16,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // --- Landing page --- (public website: landing, static pages, contact, SEO files; ?lang=en|ar)
+// Browsers post Content-Security-Policy reports here (Report-Only policy of the dashboards).
+Route::post('/csp-report', CspReportController::class)->middleware('throttle:60,1')->name('csp.report');
 Route::get('/', LandingController::class)->name('landing');
 Route::get('/contact', ContactController::class)->name('site.contact');
 Route::get('/places/{slug}', PlaceController::class)->name('site.place'); // stores whose plan includes search-engine visibility

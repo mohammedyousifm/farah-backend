@@ -80,6 +80,7 @@ return [
         'not_allowed' => 'You can only review venues you booked.',
         'too_early' => 'You can rate once your booking time has started.',
         'already_reviewed' => 'You already reviewed this order.',
+        'hidden' => 'This review is hidden and cannot be answered.',
         'created' => 'Thanks for your review.',
         'replied' => 'Reply added.',
     ],
